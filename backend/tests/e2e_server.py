@@ -20,7 +20,7 @@ class FixtureProvider(HereProvider):
     def __init__(self, client):
         super().__init__(client, "fixture")
 
-    async def flow(self, bbox, max_functional_class):
+    async def flow(self, bbox, max_functional_class, dense=False):
         r = random.Random(f"{bbox.west:.3f}{bbox.south:.3f}")
         results = []
         for i in range(14):

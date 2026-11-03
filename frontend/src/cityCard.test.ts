@@ -4,7 +4,7 @@ import { cardFilename, cardSticker, levelShares } from "./cityCard";
 describe("cardSticker", () => {
   it("follows the measured level", () => {
     expect(cardSticker("free")).toBe("aura");
-    expect(cardSticker("moderate")).toBe("aura");
+    expect(cardSticker("moderate")).toBeNull();
     expect(cardSticker("heavy")).toBe("game-over");
     expect(cardSticker("severe")).toBe("game-over");
   });

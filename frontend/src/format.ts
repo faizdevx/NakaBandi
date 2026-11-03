@@ -1,4 +1,4 @@
-import type { Level } from "./types";
+import type { Brief, Level } from "./types";
 
 export const LEVEL_COLOR: Record<Level, string> = {
   free: "#22c55e",
@@ -59,6 +59,11 @@ export function fmtVehicleRange(low: number, high: number): string {
   const lo = Math.max(1, Math.floor(low / 5) * 5);
   const hi = Math.max(lo, Math.ceil(high / 5) * 5);
   return lo === hi ? `about ${lo}` : `${lo} to ${hi}`;
+}
+
+export function roadSpeeds(b: Brief, unit = ""): string {
+  if (b.road_closed) return "CLOSED";
+  return `${b.speed_kmh ?? "n/a"} / ${b.free_flow_speed_kmh ?? "n/a"}${unit}${b.part_closed ? ", part closed" : ""}`;
 }
 
 export const roadName = (name: string | null | undefined) => name || "Unnamed road";

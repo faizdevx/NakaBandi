@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { fmtAgo, fmtClock } from "./format";
+import { fmtAgo, fmtClock, roadSpeeds } from "./format";
+import type { Brief } from "./types";
 
 describe("fmtAgo", () => {
   it("moves from seconds to minutes to hours", () => {
@@ -10,6 +11,19 @@ describe("fmtAgo", () => {
 
   it("never shows a negative age when clocks disagree", () => {
     expect(fmtAgo(-3)).toBe("0s ago");
+  });
+});
+
+describe("roadSpeeds", () => {
+  const road = { speed_kmh: 16, free_flow_speed_kmh: 28, road_closed: false, part_closed: false } as Brief;
+
+  it("keeps the measured speed when only part of a road is closed", () => {
+    expect(roadSpeeds(road)).toBe("16 / 28");
+    expect(roadSpeeds({ ...road, part_closed: true }, " km/h")).toBe("16 / 28 km/h, part closed");
+  });
+
+  it("says closed when no traffic moves", () => {
+    expect(roadSpeeds({ ...road, road_closed: true })).toBe("CLOSED");
   });
 });
 

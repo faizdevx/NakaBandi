@@ -64,6 +64,7 @@ export default function App() {
   const [trafficAt, setTrafficAt] = useState<number | null>(null);
   const [trafficStale, setTrafficStale] = useState(false);
   const segmentAbort = useRef<AbortController | null>(null);
+  const reportAsked = useRef<{ name: string; bbox: BBox } | null>(null);
 
   const noProvider = status !== null && status.provider === null;
   const caps = status?.provider?.capabilities;
@@ -159,6 +160,7 @@ export default function App() {
   );
 
   const runReport = useCallback(async (name: string, bbox: BBox) => {
+    reportAsked.current = { name, bbox };
     setSide("report");
     setSideBusy(true);
     setSideError(null);
@@ -244,8 +246,8 @@ export default function App() {
     () => {
       if (side === "road" && detail) {
         api.segment(detail.segment.id).then((next) => setDetail((cur) => (cur === detail ? next : cur)), () => {});
-      } else if (side === "report" && report) {
-        api.report(report.area, report.provenance.bbox).then((next) => setReport((cur) => (cur === report ? next : cur)), () => {});
+      } else if (side === "report" && report && reportAsked.current) {
+        api.report(reportAsked.current.name, reportAsked.current.bbox).then((next) => setReport((cur) => (cur === report ? next : cur)), () => {});
       }
     },
     DATA_POLL_MS,

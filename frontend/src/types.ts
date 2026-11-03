@@ -33,6 +33,7 @@ export type Brief = {
   congestion_level: Level;
   delay_seconds: number | null;
   road_closed: boolean;
+  part_closed: boolean;
   confidence: number | null;
   severity: number;
   modelled_status: Modelled["status"] | null;

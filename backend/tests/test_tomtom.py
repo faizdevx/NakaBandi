@@ -60,7 +60,10 @@ def test_normalize_keeps_units_and_never_invents_volume_or_time():
 
 def test_low_confidence_gets_no_colour_and_closure_is_severe():
     assert normalize_flow(flow_payload(confidence=0.5), NOW).observation.congestion_level == "unavailable"
-    assert normalize_flow(flow_payload(closed=True), NOW).observation.congestion_level == "severe"
+    stopped = normalize_flow(flow_payload(speed=0, closed=True), NOW).observation
+    assert stopped.congestion_level == "severe" and stopped.incident_status == "closed"
+    moving = normalize_flow(flow_payload(speed=16, free=28, closed=True), NOW).observation
+    assert moving.congestion_level == "moderate" and moving.incident_status == "part_closed"
     assert normalize_flow({"flowSegmentData": {}}, NOW) is None
 
 
@@ -232,3 +235,17 @@ def test_open_road_keeps_reading_if_point_snaps_to_another_road(client):
     flow.mock(return_value=httpx.Response(200, json=flow_payload(speed=9, lat=27.5)))
     body = client.get(f"/api/traffic/segment/{seg_id}").json()
     assert body["segment"]["id"] == seg_id and body["observation"]["speed_kmh"] == 15
+
+
+@respx.mock
+def test_report_samples_city_centre_with_full_grid(client):
+    flow = respx.get(url__startswith=FLOW).mock(return_value=httpx.Response(200, json=flow_payload()))
+    respx.get(f"{BASE}/services/5/incidentDetails").mock(return_value=httpx.Response(200, json={"incidents": []}))
+    respx.get(f"{settings.nominatim_url}/reverse").mock(return_value=httpx.Response(200, json={"address": {"road": "A"}}))
+    wide = {"west": 81.67, "south": 25.28, "east": 81.99, "north": 25.60}
+    body = client.post("/api/report", json={"name": "Prayagraj", "bbox": wide}).json()
+    assert flow.call_count == 25
+    box = body["provenance"]["bbox"]
+    assert box["east"] - box["west"] == pytest.approx(0.1)
+    assert (box["west"] + box["east"]) / 2 == pytest.approx(81.83)
+    assert any("central 11 km" in x for x in body["provenance"]["limitations"])

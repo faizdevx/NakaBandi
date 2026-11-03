@@ -144,7 +144,7 @@ class HereProvider:
     def _in(self, b: BBox) -> str:
         return f"bbox:{b.west:.5f},{b.south:.5f},{b.east:.5f},{b.north:.5f}"
 
-    async def flow(self, bbox: BBox, max_functional_class: int) -> FlowBatch:
+    async def flow(self, bbox: BBox, max_functional_class: int, dense: bool = False) -> FlowBatch:
         params = {
             "in": self._in(bbox),
             "locationReferencing": "shape",

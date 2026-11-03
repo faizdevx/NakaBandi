@@ -17,6 +17,15 @@ def line_length_km(line: list[list[float]]) -> float:
     return sum(haversine_km(a, b) for a, b in pairwise(line))
 
 
+def length_in_box_km(line: list[list[float]], b: dict) -> float:
+    """Road length inside an area: TomTom segments can run 20 km past it, and that length says nothing about it."""
+    return sum(
+        haversine_km(p, q)
+        for p, q in pairwise(line)
+        if b["west"] <= (p[0] + q[0]) / 2 <= b["east"] and b["south"] <= (p[1] + q[1]) / 2 <= b["north"]
+    )
+
+
 def compass(line: list[list[float]]) -> str | None:
     """Overall heading from first to last vertex."""
     if len(line) < 2 or line[0] == line[-1]:

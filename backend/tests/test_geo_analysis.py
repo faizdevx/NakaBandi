@@ -88,7 +88,7 @@ def test_report_states_missing_volume_and_provenance(payload):
     provider = {"name": "here", "attribution": "x", "capabilities": {"traffic_volume": False}}
     r = analysis.build_report(
         "Lucknow",
-        {},
+        {"west": 66.0, "south": 6.0, "east": 99.0, "north": 38.0},
         True,
         [rec(payload, speed=1)],
         [],
@@ -101,7 +101,7 @@ def test_report_states_missing_volume_and_provenance(payload):
     assert r["density_and_counts"]["available"] is False
     assert r["provenance"]["retrieved_at"] == "t1" and r["provenance"]["generated_at"] == "t2"
     text = " ".join(r["provenance"]["limitations"])
-    assert "traffic volume" in text and "1° × 1°" in text and "off" in text
+    assert "traffic volume" in text and "outskirts" in text and "off" in text
     assert "MG Road" in r["recommendations"][0]
 
 
@@ -175,3 +175,41 @@ def test_locate_endpoint_rounds_position_before_nominatim():
         route.mock(return_value=httpx.Response(200, json={"error": "Unable to geocode"}))
         assert client.post("/api/locate", json={"lat": 15.0, "lon": 70.0}).status_code == 404
         assert client.post("/api/locate", json={"lat": 915.0, "lon": 70.0}).status_code == 422
+
+
+@pytest.mark.parametrize(
+    ("km", "level"),
+    [
+        ({"free": 90, "moderate": 10, "heavy": 0, "severe": 0, "unavailable": 500}, "free"),
+        ({"free": 75, "moderate": 25, "heavy": 0, "severe": 0, "unavailable": 0}, "moderate"),
+        ({"free": 70, "moderate": 15, "heavy": 10, "severe": 5, "unavailable": 0}, "moderate"),
+        ({"free": 70, "moderate": 0, "heavy": 20, "severe": 10, "unavailable": 0}, "heavy"),
+        ({"free": 70, "moderate": 0, "heavy": 0, "severe": 30, "unavailable": 0}, "severe"),
+        ({"free": 0, "moderate": 0, "heavy": 0, "severe": 0, "unavailable": 9}, "unavailable"),
+    ],
+)
+def test_overall_level_is_worst_level_a_quarter_of_roads_reach(km, level):
+    assert analysis.overall_level(km) == level
+
+
+def test_length_in_box_ignores_road_outside():
+    box = {"west": 80.0, "south": 26.0, "east": 80.1, "north": 26.1}
+    inside = geo.length_in_box_km([[80.02, 26.05], [80.08, 26.05]], box)
+    assert inside == pytest.approx(geo.line_length_km([[80.02, 26.05], [80.08, 26.05]]))
+    assert geo.length_in_box_km([[81.0, 26.05], [81.2, 26.05]], box) == 0
+    partly = geo.length_in_box_km([[80.05, 26.05], [80.09, 26.05], [81.0, 26.05]], box)
+    assert partly == pytest.approx(geo.line_length_km([[80.05, 26.05], [80.09, 26.05]]))
+
+
+def test_long_free_road_outside_area_cannot_outvote_a_jam():
+    def road(speed, line):
+        return {
+            "segment": {"length_km": geo.line_length_km(line), "geometry": line},
+            "observation": {"congestion_level": analysis.classify(speed, 40, "realtime"), "speed_kmh": speed, "free_flow_speed_kmh": 40},
+        }
+
+    jam = road(15, [[80.02, 26.05], [80.08, 26.05]])
+    highway = road(40, [[80.09, 26.09], [80.5, 26.09]])
+    box = {"west": 80.0, "south": 26.0, "east": 80.1, "north": 26.1}
+    assert analysis.summarize([jam, highway])["overall"] == "free"
+    assert analysis.summarize([jam, highway], box)["overall"] == "heavy"

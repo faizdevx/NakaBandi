@@ -93,11 +93,13 @@ def provider_meta(provider) -> dict:
     return {"name": provider.name, "attribution": provider.attribution, "capabilities": provider.capabilities}
 
 
-async def fetch_flow(request: Request, provider, box: BBox, fc: int, key: str, ttl: int) -> tuple[dict, bool]:
+async def fetch_flow(
+    request: Request, provider, box: BBox, fc: int, key: str, ttl: int, dense: bool = False
+) -> tuple[dict, bool]:
     state = request.app.state
 
     async def load():
-        batch = (await provider.flow(box, fc)).model_dump(mode="json")
+        batch = (await provider.flow(box, fc, dense=dense)).model_dump(mode="json")
         await state.cache.set_many({f"seg:{r['segment']['id']}": r for r in batch["records"]}, SEGMENT_TTL)
         await state.history.record(batch["records"])
         return batch
@@ -361,7 +363,7 @@ async def national(request: Request, provider=Depends(need_provider)):
             "stale": stale,
             "observed_at": batch["source_updated"],
             "retrieved_at": batch["retrieved_at"],
-            "summary": analysis.summarize(records),
+            "summary": analysis.summarize(records, box.model_dump()),
             "worst": analysis.worst_segments(records, limit=5),
         }
 
@@ -415,7 +417,9 @@ async def report(body: ReportRequest, request: Request, provider=Depends(need_pr
     state = request.app.state
     box, clipped = geo.clamp_bbox(body.bbox, provider.max_bbox_side)
     key = ",".join(f"{v:.3f}" for v in box.model_dump().values())
-    batch, stale = await fetch_flow(request, provider, box, 4, f"report:{key}", settings.flow_ttl_seconds)
+    # Tiny views would spend 25 calls on one or two roads.
+    dense = box.east - box.west >= 0.05 or box.north - box.south >= 0.05
+    batch, stale = await fetch_flow(request, provider, box, 4, f"report:{key}", settings.flow_ttl_seconds, dense)
     try:
         incidents, _ = await fetch_incidents(request, provider, box, f"report:{key}")
         incidents_available = True

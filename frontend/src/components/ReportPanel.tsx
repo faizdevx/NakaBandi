@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { saveCityCard } from "../cityCard";
-import { fmtPct, fmtTime, fmtVehicleRange, LEVEL_COLOR, LEVEL_LABEL, providerName, roadName } from "../format";
+import { fmtPct, fmtTime, fmtVehicleRange, LEVEL_COLOR, LEVEL_LABEL, providerName, roadName, roadSpeeds } from "../format";
 import type { Brief, Report } from "../types";
 import { AskBox } from "./AskBox";
 import { Aura } from "./Signs";
@@ -24,7 +24,7 @@ function Roads({ rows, onRoad }: { rows: Brief[]; onRoad: (b: Brief) => void }) 
               </button>
             </td>
             <td className="font-mono" style={{ color: LEVEL_COLOR[r.congestion_level] }}>
-              {r.road_closed ? "CLOSED" : `${r.speed_kmh ?? "n/a"} / ${r.free_flow_speed_kmh ?? "n/a"}`}
+              {roadSpeeds(r)}
             </td>
             <td className="font-mono">
               {r.modelled_vehicles_low !== null && r.modelled_vehicles_high !== null

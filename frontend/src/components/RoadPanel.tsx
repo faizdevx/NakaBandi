@@ -51,6 +51,7 @@ export function RoadPanel(props: {
         <Row k="Heading" v={s.direction ?? missing} />
         <Row k="Provider confidence" v={o.confidence === null ? missing : o.confidence.toFixed(2)} />
         <Row k="Source" v={provider.attribution} />
+        {o.incident_status === "part_closed" && <Row k="Closure" v="Part of this stretch is reported closed" />}
         <Row k="Observed" v={o.observed_at ? fmtTime(o.observed_at) : missing} />
         <Row k="Retrieved" v={fmtTime(o.retrieved_at)} />
       </dl>

@@ -68,7 +68,9 @@ def normalize_flow(payload: dict, retrieved_at: datetime) -> TrafficRecord | Non
     length_km = line_length_km(line)
     speed, free, confidence = d.get("currentSpeed"), d.get("freeFlowSpeed"), d.get("confidence")
     basis = "unknown" if confidence is None or confidence < LIVE_CONFIDENCE else "realtime"
-    closed = bool(d.get("roadClosure"))
+    # TomTom flags a whole segment, sometimes 18 km long, when part of it is closed. Moving traffic means the rest is open.
+    flagged = bool(d.get("roadClosure"))
+    closed = flagged and not speed
     return TrafficRecord(
         segment=RoadSegment(id=seg_id, geometry=line, road_class=ROAD_CLASS.get(d.get("frc")), length_km=length_km),
         observation=TrafficObservation(
@@ -80,10 +82,10 @@ def normalize_flow(payload: dict, retrieved_at: datetime) -> TrafficRecord | Non
             congestion_level=classify(speed, free, basis, closed),
             travel_time_seconds=d.get("currentTravelTime") or travel_time_seconds(length_km, speed),
             free_flow_travel_time_seconds=d.get("freeFlowTravelTime") or travel_time_seconds(length_km, free),
-            incident_status="closed" if closed else None,
+            incident_status="closed" if closed else "part_closed" if flagged else None,
             confidence=confidence,
             data_basis=basis,
-            raw_source_metadata={"frc": d.get("frc"), "roadClosure": closed},
+            raw_source_metadata={"frc": d.get("frc"), "roadClosure": flagged},
         ),
         estimate=estimate_vehicles(seg_id, None, speed, length_km, confidence),
         modelled=model_vehicles(seg_id, speed, free, length_km, ROAD_CLASS.get(d.get("frc")), basis),
@@ -116,7 +118,8 @@ def normalize_incidents(payload: dict) -> list[Incident]:
 class TomTomProvider:
     name = "tomtom"
     attribution = "Traffic data © TomTom"
-    max_bbox_side = 1.0
+    # About 11 km: wider boxes fill with empty outskirts and report a jammed centre as free flow.
+    max_bbox_side = 0.1
     max_probes = 12
     capabilities = {  # noqa: RUF012
         "current_speed": True,
@@ -159,10 +162,10 @@ class TomTomProvider:
             record.observation.raw_source_metadata["zoom"] = zoom
         return record
 
-    async def flow(self, bbox: BBox, max_functional_class: int) -> FlowBatch:
+    async def flow(self, bbox: BBox, max_functional_class: int, dense: bool = False) -> FlowBatch:
         """Samples a grid. Each point snaps to its nearest road, so this covers some roads, not all."""
         side = max(bbox.east - bbox.west, bbox.north - bbox.south)
-        n = 2 if side <= 0.2 else 5
+        n = 5 if dense or side > 0.2 else 2
         gate = asyncio.Semaphore(4)
 
         async def one(i, j):

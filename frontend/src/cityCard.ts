@@ -1,4 +1,4 @@
-import { fmtPct, fmtTime, fmtVehicleRange, LEVEL_COLOR, LEVEL_LABEL, roadName } from "./format";
+import { fmtPct, fmtTime, fmtVehicleRange, LEVEL_COLOR, LEVEL_LABEL, roadName, roadSpeeds } from "./format";
 import type { Level, Report } from "./types";
 
 const SIZE = 1080;
@@ -10,9 +10,9 @@ const LEVELS: Level[] = ["free", "moderate", "heavy", "severe", "unavailable"];
 
 export type Sticker = "aura" | "game-over" | null;
 
-/** The sticker follows the measured level, so a jammed city can never earn aura. */
+/** The sticker follows the measured level, so a slowed city can never earn aura. */
 export function cardSticker(level: Level): Sticker {
-  if (level === "free" || level === "moderate") return "aura";
+  if (level === "free") return "aura";
   return level === "heavy" || level === "severe" ? "game-over" : null;
 }
 
@@ -128,7 +128,7 @@ function draw(ctx: CanvasRenderingContext2D, r: Report) {
   ctx.fillText("MOST AFFECTED ROADS", M, 668);
   r.most_affected.slice(0, 3).forEach((road, i) => {
     const y = 712 + i * 44;
-    const speeds = road.road_closed ? "CLOSED" : `${road.speed_kmh ?? "n/a"} / ${road.free_flow_speed_kmh ?? "n/a"} km/h`;
+    const speeds = roadSpeeds(road, " km/h");
     ctx.font = `600 28px ${MONO}`;
     const speedsWidth = ctx.measureText(speeds).width;
     ctx.fillStyle = LEVEL_COLOR[road.congestion_level];
@@ -147,7 +147,7 @@ function draw(ctx: CanvasRenderingContext2D, r: Report) {
   }
 
   const notes = [
-    `${fmtPct(s.coverage)} of ${Math.round(s.total_km)} km returned had live data. A road sample, not the whole city.`,
+    `${fmtPct(s.coverage)} of ${Math.round(s.total_km)} km returned had live data. A sample of central roads, not the whole city.`,
     `Data: ${r.provenance.attribution}${r.provenance.stale ? " (cached, may be out of date)" : ""}`,
     "github.com/faizdevx/NakaBandi",
   ];

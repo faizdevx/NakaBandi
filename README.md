@@ -130,7 +130,7 @@ Zoom to city level and click a road to see:
 ### Traffic reports
 A report covers overall condition, severe hotspots, most affected roads, modelled vehicle ranges, incidents, roads without live data, and recommendations that quote the observations behind them. Each one states when it was generated, when the data was retrieved, the provider, the area covered and its limitations.
 
-**Save city card** downloads a square PNG of the report, made for sharing. It shows the +1000 AURA sticker at free or moderate traffic, GAME OVER at heavy or severe, and no sticker without live data. The card keeps the data source, time and "modelled, not measured" label.
+**Save city card** downloads a square PNG of the report, made for sharing. It shows the +1000 AURA sticker at free flow, GAME OVER at heavy or severe, and no sticker at moderate or without live data. The card keeps the data source, time and "modelled, not measured" label.
 
 ### Near me
 **Near me** asks for your location, opens your city with its report, and shows your area's traffic card to save. The browser rounds your position to about 1 km before sending it, only to find the city, and it is not stored with your identity. Browsers only allow this on `localhost` or HTTPS.
@@ -205,10 +205,12 @@ Travel-time delay is `current travel time − free-flow travel time`.
 
 TomTom answers one point per call, so an area is read through a grid, and each point snaps to its nearest road:
 
-- City report: 5 × 5 grid at most, 25 calls, within the central 1° × 1°
+- City report: 5 × 5 grid at most, 25 calls, within the central 0.1° × 0.1°, about 11 km across
 - National overview: 12 cities × 4 points, 48 calls
 
 These are samples of nearby roads, not every road. Reports say so.
+
+A city's overall level is the worst level reached by at least a quarter of its live road length, counting only road inside the sampled area. An average would hide a jam: in one test, Prayagraj's central roads were 18% congested while a wider box read 100% free. The sample still reads one speed per road, so it can differ from the map, which shows changes along a road.
 
 ### Estimating vehicles
 
@@ -340,6 +342,7 @@ cd frontend && npm run e2e
 - Reports and the national overview are samples, not full coverage.
 - Road names come from OpenStreetMap at the road midpoint. They may name a nearby road or find none, and the national hotspot list stays unnamed.
 - TomTom gives no observation time, so the app shows retrieval time instead.
+- TomTom's flow data flags a whole segment when part of it is closed, without saying which part. If traffic is moving, the app colours it by speed and says "part closed".
 - TomTom's traffic colours cover many inner roads in some cities, such as Delhi, and only main roads in others, such as Kareli in Prayagraj. Roads without colours are grey, meaning no data, not empty roads.
 - The OpenAI, Gemini and Ollama adapters have not been tested against the real services.
 - The PostGIS archive passes its test from Linux containers. Connecting from Windows failed in testing.

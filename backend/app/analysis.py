@@ -1,6 +1,6 @@
 """All traffic statistics. Deterministic: AI text may only interpret what is computed here."""
 
-from .geo import midpoint
+from .geo import length_in_box_km, midpoint
 
 LEVELS = ("free", "moderate", "heavy", "severe", "unavailable")
 
@@ -25,6 +25,9 @@ def travel_time_seconds(length_km: float, speed_kmh: float | None) -> float | No
     return length_km / speed_kmh * 3600 if speed_kmh and speed_kmh > 0 else None
 
 
+OVERALL_SHARE = 0.25
+
+
 def delay_seconds(obs: dict) -> float | None:
     t, ff = obs.get("travel_time_seconds"), obs.get("free_flow_travel_time_seconds")
     return max(0.0, t - ff) if t is not None and ff is not None else None
@@ -34,12 +37,25 @@ def is_measured(rec: dict) -> bool:
     return rec["observation"]["congestion_level"] != "unavailable"
 
 
-def summarize(records: list[dict]) -> dict:
-    """Length-weighted distribution and speed index over a set of records."""
+def overall_level(km: dict[str, float]) -> str:
+    """The worst level that at least a quarter of live road length has reached, so an average cannot hide a jam."""
+    live = sum(v for level, v in km.items() if level != "unavailable")
+    if not live:
+        return "unavailable"
+    reached = 0.0
+    for level in ("severe", "heavy", "moderate"):
+        reached += km[level]
+        if reached >= live * OVERALL_SHARE:
+            return level
+    return "free"
+
+
+def summarize(records: list[dict], box: dict | None = None) -> dict:
+    """Length-weighted distribution and speed index over a set of records, counting only length inside box if given."""
     km = dict.fromkeys(LEVELS, 0.0)
     measured_km = speed_time = ff_time = 0.0
     for r in records:
-        length = r["segment"]["length_km"]
+        length = length_in_box_km(r["segment"]["geometry"], box) if box else r["segment"]["length_km"]
         obs = r["observation"]
         km[obs["congestion_level"]] += length
         if is_measured(r) and obs["speed_kmh"] and obs["free_flow_speed_kmh"]:
@@ -60,7 +76,7 @@ def summarize(records: list[dict]) -> dict:
         "avg_speed_kmh": round(avg_speed, 1) if avg_speed else None,
         "avg_free_flow_kmh": round(avg_free, 1) if avg_free else None,
         "speed_ratio": round(ratio, 3) if ratio else None,
-        "overall": classify(ratio, 1.0, "realtime") if ratio else "unavailable",
+        "overall": overall_level(km),
     }
 
 
@@ -96,6 +112,7 @@ def segment_brief(r: dict) -> dict:
         "congestion_level": obs["congestion_level"],
         "delay_seconds": round(delay) if delay is not None else None,
         "road_closed": obs["incident_status"] == "closed",
+        "part_closed": obs["incident_status"] == "part_closed",
         "confidence": obs["confidence"],
         "severity": round(severity(r), 3),
         "modelled_status": modelled.get("status"),
@@ -158,7 +175,7 @@ def build_report(
     stale: bool,
     incidents_available: bool = True,
 ) -> dict:
-    summary = summarize(records)
+    summary = summarize(records, bbox)
     worst = worst_segments(records)
     hotspots = [w for w in worst if w["congestion_level"] == "severe"]
     unmeasured: dict[str, float] = {}
@@ -176,7 +193,7 @@ def build_report(
             "Ranges are modelled from speed with assumed jam density and lanes, and are not validated."
         )
     if clipped:
-        limitations.append("Area exceeds one provider request: report covers the central 1° × 1° only.")
+        limitations.append(f"Covers only the central {round((bbox['north'] - bbox['south']) * 111)} km of this place, so outskirts are left out.")
     limitations.append("Area is the bounding box of the selected place, not its exact boundary.")
     if stale:
         limitations.append("Provider was unreachable: figures are the last good retrieval.")
