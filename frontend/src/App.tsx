@@ -49,7 +49,7 @@ export default function App() {
   const [segmentsLoading, setSegmentsLoading] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [view, setView] = useState<{ bbox: BBox; zoom: number } | null>(null);
-  const [toggles, setToggles] = useState<Toggles>({ hybrid: true, traffic: true, roads: true, hotspots: true, threeD: false, particles: false });
+  const [toggles, setToggles] = useState<Toggles>({ hybrid: true, traffic: true, roads: true, hotspots: true, threeD: true, particles: false });
   const [boundary, setBoundary] = useState<SearchResult | null>(null);
   const [places, setPlaces] = useState<Place[]>([]);
   const [side, setSide] = useState<Side>(null);
@@ -66,6 +66,19 @@ export default function App() {
   const segmentAbort = useRef<AbortController | null>(null);
   const reportAsked = useRef<{ name: string; bbox: BBox } | null>(null);
   const placesFor = useRef<SearchResult | null>(null);
+
+  // Panels lean with the pointer. Skipped mid-drag so panning the map never pays for it.
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const root = document.documentElement;
+    const lean = (e: PointerEvent) => {
+      if (e.buttons || e.pointerType !== "mouse") return;
+      root.style.setProperty("--mx", (e.clientX / window.innerWidth - 0.5).toFixed(3));
+      root.style.setProperty("--my", (e.clientY / window.innerHeight - 0.5).toFixed(3));
+    };
+    window.addEventListener("pointermove", lean);
+    return () => window.removeEventListener("pointermove", lean);
+  }, []);
 
   const noProvider = status !== null && status.provider === null;
   const caps = status?.provider?.capabilities;
@@ -352,7 +365,7 @@ export default function App() {
       />
 
       {side && (
-        <aside className="panel scroll-thin absolute top-28 right-3 bottom-25 z-30 w-[calc(100%-1.5rem)] overflow-y-auto p-3 md:top-20 md:right-[4.25rem] md:z-10 md:w-96" aria-label="Inspection panel">
+        <aside className="panel tilt-right scroll-thin absolute top-28 right-3 bottom-25 z-30 w-[calc(100%-1.5rem)] overflow-y-auto p-3 md:top-20 md:right-[4.25rem] md:z-10 md:w-96" aria-label="Inspection panel">
           <div className="mb-2 flex items-center justify-between">
             <span className="plate">{side === "road" ? "Road inspection" : "Traffic report"}</span>
             <div className="flex gap-1">
@@ -400,6 +413,7 @@ export default function App() {
         stale={!!(meta?.stale || national?.stale) || trafficStale}
         notice={notice ?? (caps?.point_lookup && view && view.zoom >= POINT_LOOKUP_MIN_ZOOM ? "Click any road to inspect it" : null)}
         particles={toggles.particles}
+        columns={toggles.threeD && toggles.hotspots && !!view && view.zoom < SEGMENT_MIN_ZOOM}
         canReport={!!status?.provider && !!view && view.zoom >= SEGMENT_MIN_ZOOM}
         onReportView={() => view && void runReport("Current view", clampIndia(view.bbox))}
       />

@@ -8,11 +8,12 @@ export function BottomDock(props: {
   stale: boolean;
   notice: string | null;
   particles: boolean;
+  columns: boolean;
   canReport: boolean;
   onReportView: () => void;
 }) {
   return (
-    <div className="panel absolute bottom-20 left-3 z-10 md:bottom-6 flex max-w-[calc(100%-1.5rem)] flex-wrap items-center gap-x-4 gap-y-1 px-3 py-1.5 text-xs md:left-1/2 md:max-w-[60%] md:-translate-x-1/2">
+    <div className="panel tilt-bottom absolute bottom-20 left-3 z-10 md:bottom-6 flex max-w-[calc(100%-1.5rem)] flex-wrap items-center gap-x-4 gap-y-1 px-3 py-1.5 text-xs md:left-1/2 md:max-w-[60%] md:-translate-x-1/2">
       <div className="flex items-center gap-2.5" aria-label="Congestion legend">
         <span className="flex items-center gap-1">
           <Diamond size={15} color="#22c55e" /> Free
@@ -30,6 +31,7 @@ export function BottomDock(props: {
           <span className="bg-nodata inline-block h-3 w-3" /> No data
         </span>
       </div>
+      {props.columns && <span className="text-muted" title="Column height shows how slowed the road is, not a vehicle count">Taller = slower</span>}
       <div className="hidden items-center gap-3 font-mono md:flex">
         <span title="When the provider last updated this data">Obs {fmtTime(props.observedAt)}</span>
         <span title="When Nakabandi retrieved it">Ret {fmtTime(props.retrievedAt)}</span>

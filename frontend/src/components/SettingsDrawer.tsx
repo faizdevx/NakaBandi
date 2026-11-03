@@ -44,7 +44,7 @@ export function SettingsDrawer({ status, onClose, onSaved }: { status: Status | 
   const chosen = settings?.providers.find((p) => p.id === provider);
 
   return (
-    <aside className="panel scroll-thin absolute top-3 right-3 bottom-3 z-30 w-[calc(100%-1.5rem)] overflow-y-auto p-4 md:w-96" aria-label="Settings">
+    <aside className="panel tilt-right scroll-thin absolute top-3 right-3 bottom-3 z-30 w-[calc(100%-1.5rem)] overflow-y-auto p-4 md:w-96" aria-label="Settings">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-black">Settings</h2>
         <button className="btn" onClick={onClose}>

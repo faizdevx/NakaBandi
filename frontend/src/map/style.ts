@@ -16,6 +16,16 @@ export const ROAD_LAYERS = ["roads-major", "roads-minor"];
 export const baseStyle: StyleSpecification = {
   version: 8,
   glyphs: "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf",
+  projection: { type: "globe" },
+  sky: {
+    "sky-color": "#16324f",
+    "horizon-color": "#5d7f9c",
+    "fog-color": "#1b2a36",
+    "sky-horizon-blend": 0.6,
+    "horizon-fog-blend": 0.7,
+    "fog-ground-blend": 0.75,
+    "atmosphere-blend": ["interpolate", ["linear"], ["zoom"], 0, 1, 6, 0.9, 9, 0],
+  },
   sources: {
     imagery: {
       type: "raster",
@@ -28,6 +38,14 @@ export const baseStyle: StyleSpecification = {
     osm: {
       type: "vector",
       url: "https://tiles.openfreemap.org/planet",
+    },
+    terrain: {
+      type: "raster-dem",
+      tiles: ["https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"],
+      encoding: "terrarium",
+      tileSize: 256,
+      maxzoom: 14,
+      attribution: "Terrain © Mapzen, AWS Open Data",
     },
   },
   layers: [
@@ -89,6 +107,20 @@ export const baseStyle: StyleSpecification = {
       "source-layer": "boundary",
       filter: ["all", ["==", ["get", "admin_level"], 2], ["!=", ["get", "maritime"], 1]],
       paint: { "line-color": "#f5f1e6", "line-width": 1.6 },
+    },
+    {
+      id: "buildings-3d",
+      type: "fill-extrusion",
+      source: "osm",
+      "source-layer": "building",
+      minzoom: 14,
+      filter: ["!=", ["get", "hide_3d"], true],
+      paint: {
+        "fill-extrusion-color": "#d9d4c5",
+        "fill-extrusion-opacity": 0.82,
+        "fill-extrusion-height": ["interpolate", ["linear"], ["zoom"], 14, 0, 15, ["coalesce", ["get", "render_height"], 6]],
+        "fill-extrusion-base": ["coalesce", ["get", "render_min_height"], 0],
+      },
     },
     {
       id: "highway-shields",

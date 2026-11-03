@@ -104,7 +104,8 @@ Captured from the running app on real TomTom traffic, on 3 November 2026.
 - Opens on all of India, on Esri satellite imagery with OpenStreetMap roads, boundaries and labels.
 - Colours roads by live congestion, using TomTom's traffic tiles so the colours sit on the real roads.
 - Marks congested spots from a 12-city sample as hotspots. Nearby ones cluster at national zoom.
-- Supports zoom, pan, rotate and a tilted 3D view.
+- Opens in 3D: a tilted globe with real terrain, OpenStreetMap building heights and hotspot columns. Column height shows how slowed the road is, not a vehicle count.
+- Supports zoom, pan and rotate.
 
 | Control | Action |
 |---|---|
@@ -112,7 +113,7 @@ Captured from the running app on real TomTom traffic, on 3 November 2026.
 | `TRF` | Traffic colours on or off |
 | `RDS` | Road network on or off |
 | `HOT` | Hotspots on or off |
-| `3D` | Tilt the map |
+| `3D` | Switch between the 3D globe view and a flat map |
 | `SIM` | Illustrative flow dots, clearly labelled as simulated. Hidden with TomTom, because its road direction is not documented |
 | `IND` | Back to the full India view |
 

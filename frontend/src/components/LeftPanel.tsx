@@ -29,7 +29,7 @@ export function LeftPanel(props: {
   const chart = n ? ORDER.map((l) => ({ level: l, label: LEVEL_LABEL[l], km: n.km_by_level[l] })) : [];
 
   return (
-    <aside className="panel scroll-thin absolute top-28 bottom-25 left-3 z-10 w-[calc(100%-1.5rem)] overflow-y-auto p-3 md:top-20 md:w-80">
+    <aside className="panel tilt-left scroll-thin absolute top-28 bottom-25 left-3 z-10 w-[calc(100%-1.5rem)] overflow-y-auto p-3 md:top-20 md:w-80">
       <div className="flex items-center justify-between">
         <span className="plate">National overview</span>
         <button className="btn" onClick={() => setOpen(false)} aria-label="Collapse overview">

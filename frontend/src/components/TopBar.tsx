@@ -58,10 +58,10 @@ export function TopBar(props: {
   }
 
   return (
-    <header className="panel absolute top-3 right-3 left-3 z-20 flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2">
+    <header className="panel tilt-top absolute top-3 right-3 left-3 z-20 flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2">
       <button onClick={props.onLogo} className="flex cursor-pointer items-center gap-2" title="About Nakabandi">
         <Octagon size={30} />
-        <span className="text-lg font-black tracking-tight">NAKABANDI</span>
+        <span className="extrude text-lg font-black tracking-tight">NAKABANDI</span>
       </button>
 
       <form onSubmit={submit} className="relative order-last w-full md:order-none md:w-96" role="search">

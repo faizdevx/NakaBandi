@@ -2,11 +2,13 @@ import maplibregl, { type GeoJSONSource, type Map as MLMap } from "maplibre-gl";
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { LEVEL_COLOR } from "../format";
 import type { BBox, National, Place, SearchResult, SegmentCollection, Toggles } from "../types";
+import { hotspotColumns } from "./extrude";
 import { buildTracks, particleFrame } from "./particles";
 import { baseStyle, INDIA_BOUNDS, LABEL_LAYERS, ROAD_LAYERS } from "./style";
 
 export const SEGMENT_MIN_ZOOM = 9.5;
 export const POINT_LOOKUP_MIN_ZOOM = 10;
+const TILT = 50;
 const EMPTY: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: [] };
 const levelColor: maplibregl.ExpressionSpecification = [
   "match",
@@ -63,11 +65,17 @@ type Props = {
 };
 
 function currentView(map: MLMap) {
+  const zoom = map.getZoom();
+  if (map.getPitch() > 0 && zoom >= SEGMENT_MIN_ZOOM) {
+    // Tilted bounds reach the horizon: read only the ground in clear view, or a city view asks for a whole district.
+    const { clientWidth: w, clientHeight: h } = map.getCanvas();
+    const ground = [[0, h * 0.3], [w, h * 0.3], [0, h], [w, h]].map(([x, y]) => map.unproject([x, y]));
+    const lons = ground.map((p) => p.lng);
+    const lats = ground.map((p) => p.lat);
+    return { zoom, bbox: { west: Math.min(...lons), south: Math.min(...lats), east: Math.max(...lons), north: Math.max(...lats) } };
+  }
   const b = map.getBounds();
-  return {
-    zoom: map.getZoom(),
-    bbox: { west: b.getWest(), south: b.getSouth(), east: b.getEast(), north: b.getNorth() },
-  };
+  return { zoom, bbox: { west: b.getWest(), south: b.getSouth(), east: b.getEast(), north: b.getNorth() } };
 }
 
 const flowSource = (version: number): maplibregl.RasterSourceSpecification => ({
@@ -107,7 +115,7 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(props, ref)
         { padding: clearArea(), maxZoom: 15, duration: 1800 },
       ),
     flyTo: (lon, lat, zoom = 14) => mapRef.current?.flyTo({ center: [lon, lat], zoom, padding: clearArea(), duration: 1600 }),
-    reset: () => mapRef.current?.fitBounds(INDIA_BOUNDS, { padding: 30, pitch: 0, bearing: 0, duration: 1400 }),
+    reset: () => mapRef.current?.fitBounds(INDIA_BOUNDS, { padding: 30, pitch: callbacks.current.toggles.threeD ? TILT : 0, bearing: 0, duration: 1400 }),
     view: () => (mapRef.current ? currentView(mapRef.current) : null),
     // Loads the new tiles invisibly and swaps once complete, so the colours never blink off.
     refreshTraffic: () => {
@@ -150,7 +158,8 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(props, ref)
       container: box.current!,
       style: baseStyle,
       bounds: INDIA_BOUNDS,
-      fitBoundsOptions: { padding: 30 },
+      fitBoundsOptions: { padding: 30, pitch: callbacks.current.toggles.threeD ? TILT : 0 },
+      pitch: callbacks.current.toggles.threeD ? TILT : 0,
       maxPitch: 70,
       attributionControl: false,
       fadeDuration: 150,
@@ -165,7 +174,7 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(props, ref)
     });
 
     map.on("load", () => {
-      for (const id of ["boundary", "report-area", "segments", "selected-line", "places", "particles", "cities"]) {
+      for (const id of ["boundary", "report-area", "segments", "hotspot-columns", "selected-line", "places", "particles", "cities"]) {
         map.addSource(id, { type: "geojson", data: EMPTY });
       }
       map.addSource("hotspots", {
@@ -316,7 +325,21 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(props, ref)
         },
       });
 
-      for (const layer of ["segments-hit", "hotspot-cluster", "hotspot-point"]) {
+      map.addLayer({
+        id: "hotspot-columns",
+        type: "fill-extrusion",
+        source: "hotspot-columns",
+        maxzoom: SEGMENT_MIN_ZOOM,
+        // Two widths, because one fixed ground size is a dot at country zoom and a slab at district zoom.
+        filter: ["==", ["get", "tier"], ["step", ["zoom"], 0, 7, 1]],
+        paint: {
+          "fill-extrusion-color": severityColor(["get", "severity"]),
+          "fill-extrusion-opacity": 0.92,
+          "fill-extrusion-height": ["interpolate", ["linear"], ["zoom"], 4, ["*", 420000, ["get", "severity"]], 7, ["*", 70000, ["get", "severity"]], 9.5, ["*", 14000, ["get", "severity"]]],
+        },
+      });
+
+      for (const layer of ["segments-hit", "hotspot-cluster", "hotspot-point", "hotspot-columns"]) {
         map.on("mouseenter", layer, () => (map.getCanvas().style.cursor = "pointer"));
         map.on("mouseleave", layer, () => (map.getCanvas().style.cursor = ""));
       }
@@ -337,10 +360,16 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(props, ref)
         map.flyTo({ center: (f.geometry as GeoJSON.Point).coordinates as [number, number], zoom: 14, padding: clearArea(), duration: 1600 });
         if (f.properties.id) callbacks.current.onSegment(f.properties.id);
       });
+      map.on("click", "hotspot-columns", (e) => {
+        const f = e.features?.[0];
+        if (!f) return;
+        map.flyTo({ center: [f.properties.lon, f.properties.lat], zoom: 14, padding: clearArea(), duration: 1600 });
+        if (f.properties.id) callbacks.current.onSegment(f.properties.id);
+      });
       map.on("click", (e) => {
         const click = callbacks.current.onMapClick;
         if (!click || map.getZoom() < POINT_LOOKUP_MIN_ZOOM) return;
-        if (map.queryRenderedFeatures(e.point, { layers: ["hotspot-cluster", "hotspot-point"] }).length) return;
+        if (map.queryRenderedFeatures(e.point, { layers: ["hotspot-cluster", "hotspot-point", "hotspot-columns"] }).length) return;
         click(e.lngLat.lat, e.lngLat.lng, map.getZoom());
       });
       map.on("moveend", () => callbacks.current.onMove(currentView(map)));
@@ -378,10 +407,12 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(props, ref)
     vis(LABEL_LAYERS, toggles.hybrid);
     vis(ROAD_LAYERS, toggles.roads);
     vis(["segments-casing", "segments-line", "segments-hit", "segment-selected", "roads-no-data"], toggles.traffic);
+    vis(["hotspot-columns"], toggles.hotspots && toggles.threeD);
+    vis(["buildings-3d"], toggles.threeD);
     vis(["hotspot-cluster", "hotspot-count", "hotspot-point", "city-unavailable"], toggles.hotspots);
     vis(["particles"], toggles.particles);
     if (flowLayer.current) vis([flowLayer.current], toggles.traffic);
-  }, [ready, trafficTiles, toggles.hybrid, toggles.roads, toggles.traffic, toggles.hotspots, toggles.particles]);
+  }, [ready, trafficTiles, toggles.hybrid, toggles.roads, toggles.traffic, toggles.hotspots, toggles.particles, toggles.threeD]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -393,7 +424,11 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(props, ref)
   }, [ready, trafficTiles]);
 
   useEffect(() => {
-    if (ready) mapRef.current?.easeTo({ pitch: toggles.threeD ? 55 : 0, duration: 700 });
+    const map = mapRef.current;
+    if (!ready || !map) return;
+    map.setProjection({ type: toggles.threeD ? "globe" : "mercator" });
+    map.setTerrain(toggles.threeD ? { source: "terrain", exaggeration: 1.4 } : null);
+    map.easeTo({ pitch: toggles.threeD ? TILT : 0, duration: 700 });
   }, [ready, toggles.threeD]);
 
   useEffect(() => {
@@ -407,6 +442,7 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(props, ref)
       }),
     });
     setData(map, "hotspots", pointFc(national?.hotspots ?? [], (h) => ({ lon: h.lon, lat: h.lat, props: h })));
+    setData(map, "hotspot-columns", hotspotColumns(national?.hotspots ?? []));
     setData(
       map,
       "cities",
