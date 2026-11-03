@@ -54,8 +54,9 @@ export const baseStyle: StyleSpecification = {
       minzoom: 4,
       filter: ["in", ["get", "class"], ["literal", ["motorway", "trunk"]]],
       paint: {
-        "line-color": "#f9b013",
-        "line-opacity": 0.8,
+        // Neutral on purpose: amber here would read as moderate traffic.
+        "line-color": "#e7e2d3",
+        "line-opacity": 0.7,
         "line-width": ["interpolate", ["linear"], ["zoom"], 4, 0.5, 8, 1.2, 14, 3.5],
       },
     },

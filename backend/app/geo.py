@@ -40,6 +40,21 @@ def midpoint(line: list[list[float]]) -> list[float]:
     return line[0]
 
 
+def distance_to_line_km(lat: float, lon: float, line: list[list[float]]) -> float:
+    """Shortest distance from a point to a polyline, on a local flat projection."""
+    kx = 111.19 * math.cos(math.radians(lat))
+    ky = 111.19
+    best = math.inf
+    for a, b in pairwise(line):
+        ax, ay = (a[0] - lon) * kx, (a[1] - lat) * ky
+        bx, by = (b[0] - lon) * kx, (b[1] - lat) * ky
+        dx, dy = bx - ax, by - ay
+        span = dx * dx + dy * dy
+        t = max(0.0, min(1.0, -(ax * dx + ay * dy) / span)) if span else 0.0
+        best = min(best, math.hypot(ax + t * dx, ay + t * dy))
+    return best
+
+
 def valid_india_bbox(b: BBox) -> bool:
     return (
         b.west < b.east

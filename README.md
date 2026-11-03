@@ -6,10 +6,10 @@ Nakabandi shows no sample data. Without a provider key it says so, and the map a
 
 ## Run it
 
-Get a [HERE](https://platform.here.com) API key, then:
+Get a free [TomTom](https://developer.tomtom.com) API key (no card), then:
 
 ```bash
-cp .env.example .env   # set HERE_API_KEY
+cp .env.example .env   # set TOMTOM_API_KEY in .env, never in .env.example
 docker compose up --build
 ```
 
@@ -28,12 +28,16 @@ Open http://localhost:5173.
 
 | Item | Source |
 |---|---|
-| Speed, free-flow speed, confidence | HERE Traffic API v7 |
-| Congestion colour | `speed / free-flow`: at least 0.75 free, 0.5 moderate, 0.25 heavy, below that severe |
-| Grey road | HERE confidence at or below 0.7, which HERE documents as historical or speed-limit data, not live |
-| Travel-time delay | Derived from length and speeds |
+| Road colours on the map | TomTom traffic tiles, using TomTom's own colour scale |
+| Speed, free-flow speed, travel times, confidence | TomTom Flow Segment Data |
+| Congestion level in panels | `speed / free-flow`: at least 0.75 free, 0.5 moderate, 0.25 heavy, below that severe |
+| "No live data" | Confidence below 0.7. TomTom documents confidence only as 0 to 1 quality, so this cut-off is Nakabandi's choice |
+| Incidents | TomTom Incident Details |
+| Road names | OpenStreetMap, looked up at the road midpoint, because TomTom returns none. May name a nearby road or find none |
 | Vehicle estimate | `N = q × L / v`, only when the provider reports flow `q` |
 | AI text | Interpretation of computed figures. Numbers not found in the evidence are flagged in the UI |
+
+City reports and the national overview are grid samples, because TomTom answers one point per call. They cover some roads, not all, and say so. The simulated flow dots stay hidden with TomTom because it does not document coordinate order as travel direction.
 
 ### Vehicle counts are currently unavailable
 
@@ -41,19 +45,19 @@ The HERE and TomTom flow documentation lists no traffic-volume field, so `flow_v
 
 ## Provider review
 
-Checked against public documentation, November 2026. Nothing here has been confirmed with a live key yet.
+Checked against public documentation in November 2026. TomTom was also tested live for India (Lucknow, Delhi, Bengaluru, Chandigarh).
 
-| | HERE Traffic v7 | TomTom Flow Segment | Mappls |
+| | TomTom (in use) | HERE Traffic v7 (adapter included) | Mappls |
 |---|---|---|---|
-| India live flow | Coverage page lists India North, Central, South | Not stated on the flow pages | Marketed, no public coverage detail |
+| India live flow | Listed in coverage, confirmed live | Coverage page lists India | Marketed, no public coverage detail |
 | Current speed | Yes | Yes | Marketed |
 | Volume (veh/h) | Not documented | Not documented | Not found |
-| Area request | Bounding box up to 1° × 1° | Single point per call | Not found |
-| Road names | Not confirmed in docs, treated as optional | No | Not found |
-| Free tier | Not shown on pricing page | 20K calls per month, no card | No public figures |
-| Attribution and storage terms | Not verified | Not verified | Not verified |
+| Area request | Single point per call | Bounding box up to 1° × 1° | Not found |
+| Road names | No | Not confirmed in docs | Not found |
+| Free tier | 20K flow, 200K tiles, 2.5K incidents per month, no card | No free tier confirmed | No public figures |
+| Attribution and storage terms | Tiles sent as no-store. Terms not fully reviewed | Not verified | Not verified |
 
-HERE came first because one bounding-box call returns a whole city, where TomTom needs one call per road. Read the provider's terms before commercial use, and before turning on the archive.
+Read the provider's terms before commercial use, and before turning on the archive. TomTom is used when both keys are set.
 
 To add a provider, implement `TrafficProvider` in `backend/app/providers/base.py` and normalize into `backend/app/schemas.py`.
 
@@ -68,11 +72,16 @@ To add a provider, implement `TrafficProvider` in `backend/app/providers/base.py
 
 Boundaries come from OpenStreetMap and are not an official Survey of India depiction. Review this before any public release in India.
 
-## Provider request budget
+## Staying on the free tier
 
-- National overview: 24 city samples, one call each, cached 30 minutes (`NATIONAL_TTL_SECONDS`). It is a sample of cities, not all of India.
-- Map at city zoom: up to 16 grid cells per view, cached 5 minutes (`FLOW_TTL_SECONDS`).
-- When the provider fails, the last good data is served and marked STALE.
+| Action | TomTom calls | Cached |
+|---|---|---|
+| National overview | 48 flow (12 cities × 4 points) | 3 hours |
+| City report | 25 flow + 1 incident | 15 minutes |
+| Clicking a road | 1 flow + 1 incident | 15 minutes |
+| Map traffic layer | 1 tile per tile shown | Not cached, TomTom sends no-store |
+
+The API stops calling TomTom for the day at 600 flow, 6000 tile and 75 incident calls (`FLOW_DAILY_BUDGET`, `TILE_DAILY_BUDGET`, `INCIDENT_DAILY_BUDGET`), then serves the last good data marked STALE where it has one. These counters are per process and reset on restart.
 
 ## History
 
@@ -92,6 +101,8 @@ cd backend && .venv/Scripts/python -m tests.e2e_server
 cd frontend && npm run dev
 cd frontend && npm run e2e
 ```
+
+`frontend/e2e/live-check.mjs` runs the same flow against the real provider and spends real quota.
 
 ## Theme photo
 

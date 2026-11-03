@@ -10,6 +10,7 @@ class TrafficProvider(Protocol):
     attribution: str
     capabilities: dict[str, bool]
     max_bbox_side: float  # degrees per request
+    max_probes: int  # cities in the national sample
 
     async def flow(self, bbox: BBox, max_functional_class: int) -> FlowBatch: ...
 

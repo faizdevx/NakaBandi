@@ -15,7 +15,15 @@ BBOX = "80.8,26.7,81.0,26.9"
 
 @pytest.fixture
 def client(monkeypatch):
-    for key in ("redis_url", "database_url", "here_api_key", "ai_provider", "admin_token", "ollama_url"):
+    for key in (
+        "redis_url",
+        "database_url",
+        "here_api_key",
+        "tomtom_api_key",
+        "ai_provider",
+        "admin_token",
+        "ollama_url",
+    ):
         monkeypatch.setattr(settings, key, "")
     with TestClient(app) as c:
         yield c

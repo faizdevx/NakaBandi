@@ -39,7 +39,7 @@ export function LeftPanel(props: {
 
       {noProvider && (
         <PanelNotice sign={<DeadEnd />} title="No traffic feed">
-          No provider key is set, so no traffic figures are shown. Add <code>HERE_API_KEY</code> to <code>.env</code> and restart
+          No provider key is set, so no traffic figures are shown. Add <code>TOMTOM_API_KEY</code> to <code>.env</code> and restart
           the API. Map and search still work.
         </PanelNotice>
       )}

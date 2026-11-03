@@ -127,6 +127,7 @@ export type Report = {
   density_and_counts: { available: boolean; estimates: Estimate[]; reason: string | null };
   incidents: Incident[];
   incident_count: number;
+  incidents_available: boolean;
   insufficient_data: { unmeasured_km: number; roads: { road_name: string; km: number }[] };
   history: { available: boolean; reason?: string; samples?: number; avg_speed_kmh?: number };
   recommendations: string[];

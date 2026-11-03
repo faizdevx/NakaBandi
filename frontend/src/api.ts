@@ -49,6 +49,8 @@ export const api = {
   segments: (b: BBox, zoom: number, signal: AbortSignal) =>
     call<SegmentCollection>(`/api/traffic/segments?bbox=${bboxParam(b)}&zoom=${zoom.toFixed(1)}`, { signal }),
   segment: (id: string) => call<SegmentDetail>(`/api/traffic/segment/${encodeURIComponent(id)}`),
+  segmentAt: (lat: number, lon: number, zoom: number) =>
+    call<SegmentDetail>(`/api/traffic/at?lat=${lat.toFixed(5)}&lon=${lon.toFixed(5)}&zoom=${Math.round(zoom)}`),
   search: (q: string) =>
     call<{ results: SearchResult[] }>(`/api/search?q=${encodeURIComponent(q)}`).then((r) => r.results),
   places: (b: BBox) => call<{ places: Place[] }>(`/api/places?bbox=${bboxParam(b)}`).then((r) => r.places),

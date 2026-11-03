@@ -123,12 +123,18 @@ class HereProvider:
     name = "here"
     attribution = "Traffic data © HERE"
     max_bbox_side = 1.0
+    max_probes = 24
     capabilities: ClassVar[dict[str, bool]] = {
         "current_speed": True,
         "free_flow_speed": True,
         "traffic_volume": False,
         "incidents": True,
         "historical_api": False,
+        "bbox_flow": True,
+        "flow_tiles": False,
+        "point_lookup": False,
+        "travel_direction": True,
+        "road_names": True,
     }
 
     def __init__(self, client, api_key: str):

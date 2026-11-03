@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 
 import httpx
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field
 
 from . import ai, analysis, geo, geocode
@@ -43,6 +43,8 @@ MAX_CELLS = 16
 SEGMENT_TTL = 3600
 REPORT_TTL = 3600
 AI_SETTING_KEY = "settings:ai"
+MAX_CLICK_KM = 0.25
+NAMED_IN_REPORT = 5
 
 
 @asynccontextmanager
@@ -197,11 +199,27 @@ async def segments(
     }
 
 
-@app.get("/api/traffic/segment/{segment_id}")
-async def segment_detail(request: Request, segment_id: str, provider=Depends(need_provider)):
-    record = await request.app.state.cache.get(f"seg:{segment_id}")
-    if record is None:
-        raise HTTPException(404, {"code": "segment_expired", "detail": "Segment no longer cached. Refresh traffic."})
+async def named(request: Request, provider, record: dict) -> dict:
+    """Adds an OpenStreetMap road name when the traffic provider has none. A failed lookup only leaves it unnamed."""
+    if record["segment"]["road_name"] or provider.capabilities.get("road_names", True):
+        return record
+    state = request.app.state
+    lon, lat = geo.midpoint(record["segment"]["geometry"])
+
+    async def load():
+        return {"name": await geocode.road_name(state.client, lat, lon)}
+
+    try:
+        found, _ = await state.cache.fetch(f"rev:{lat:.4f}:{lon:.4f}", 30 * 86400, load)
+    except UpstreamError:
+        return record
+    record["segment"]["road_name"] = found["name"]
+    await state.cache.set(f"seg:{record['segment']['id']}", record, SEGMENT_TTL)
+    return record
+
+
+async def segment_response(request: Request, provider, record: dict) -> dict:
+    record = await named(request, provider, record)
     lon, lat = geo.midpoint(record["segment"]["geometry"])
     box = BBox(west=lon - 0.003, south=lat - 0.003, east=lon + 0.003, north=lat + 0.003)
     try:
@@ -216,6 +234,50 @@ async def segment_detail(request: Request, segment_id: str, provider=Depends(nee
         "incidents_error": incidents_error,
         "provider": provider_meta(provider),
     }
+
+
+@app.get("/api/traffic/segment/{segment_id}")
+async def segment_detail(request: Request, segment_id: str, provider=Depends(need_provider)):
+    record = await request.app.state.cache.get(f"seg:{segment_id}")
+    if record is None:
+        raise HTTPException(404, {"code": "segment_expired", "detail": "Segment no longer cached. Refresh traffic."})
+    return await segment_response(request, provider, record)
+
+
+@app.get("/api/traffic/at")
+async def traffic_at(
+    request: Request,
+    lat: float = Query(...),
+    lon: float = Query(...),
+    zoom: int = Query(..., ge=0, le=22),
+    provider=Depends(need_provider),
+):
+    """Nearest road to a map click, for providers that answer per point."""
+    if not provider.capabilities.get("point_lookup"):
+        raise HTTPException(404, {"code": "not_supported", "detail": "Provider has no point lookup."})
+    if not geo.valid_india_bbox(BBox(west=lon, south=lat, east=lon + 1e-6, north=lat + 1e-6)):
+        raise HTTPException(422, {"code": "bad_point", "detail": "Point must lie inside the India region."})
+    state = request.app.state
+
+    async def load():
+        found = await provider.flow_at(lat, lon, zoom)
+        return found.model_dump(mode="json") if found else {}
+
+    record, _ = await state.cache.fetch(f"at:{lat:.4f}:{lon:.4f}:{zoom}", settings.flow_ttl_seconds, load)
+    if not record or geo.distance_to_line_km(lat, lon, record["segment"]["geometry"]) > MAX_CLICK_KM:
+        raise HTTPException(404, {"code": "no_road_nearby", "detail": "No road with traffic data near this point."})
+    await state.cache.set(f"seg:{record['segment']['id']}", record, SEGMENT_TTL)
+    return await segment_response(request, provider, record)
+
+
+@app.get("/api/traffic/tiles/{z}/{x}/{y}.png")
+async def traffic_tile(request: Request, z: int, x: int, y: int, provider=Depends(need_provider)):
+    """Proxy so the provider key never reaches the browser. TomTom sends no-store, so nothing is cached here."""
+    if not provider.capabilities.get("flow_tiles"):
+        raise HTTPException(404, {"code": "not_supported", "detail": "Provider has no traffic tiles."})
+    if not (0 <= z <= 22 and 0 <= x < 2**z and 0 <= y < 2**z):
+        raise HTTPException(422, {"code": "bad_tile", "detail": "Invalid tile address."})
+    return Response(await provider.tile(z, x, y), media_type="image/png", headers={"Cache-Control": "no-store"})
 
 
 @app.get("/api/traffic/national")
@@ -247,7 +309,7 @@ async def national(request: Request, provider=Depends(need_provider)):
             "worst": analysis.worst_segments(records, limit=5),
         }
 
-    cities = await asyncio.gather(*(probe(*p) for p in PROBES))
+    cities = await asyncio.gather(*(probe(*p) for p in PROBES[: provider.max_probes]))
     ok = [c for c in cities if c["summary"]]
     km = dict.fromkeys(analysis.LEVELS, 0.0)
     for c in ok:
@@ -300,8 +362,12 @@ async def report(body: ReportRequest, request: Request, provider=Depends(need_pr
     batch, stale = await fetch_flow(request, provider, box, 4, f"report:{key}", settings.flow_ttl_seconds)
     try:
         incidents, _ = await fetch_incidents(request, provider, box, f"report:{key}")
+        incidents_available = True
     except UpstreamError:
-        incidents = []
+        incidents, incidents_available = [], False
+    by_id = {r["segment"]["id"]: r for r in batch["records"]}
+    for brief in analysis.worst_segments(batch["records"], limit=NAMED_IN_REPORT):
+        await named(request, provider, by_id[brief["id"]])
     b = box.model_dump()
     result = analysis.build_report(
         body.name,
@@ -314,6 +380,7 @@ async def report(body: ReportRequest, request: Request, provider=Depends(need_pr
         batch["retrieved_at"],
         utcnow().isoformat(),
         stale,
+        incidents_available,
     )
     result["id"] = uuid.uuid4().hex
     await state.cache.set(f"report:{result['id']}", result, REPORT_TTL)

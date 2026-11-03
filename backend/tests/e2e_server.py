@@ -13,6 +13,7 @@ from app.providers.here import HereProvider, normalize_flow
 
 
 class FixtureProvider(HereProvider):
+    name = "here"
     # Fixture lines are random diagonals, they do not follow roads. Must never read as real traffic.
     attribution = "FIXTURE TEST DATA, NOT REAL TRAFFIC"
 

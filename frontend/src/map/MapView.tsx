@@ -6,6 +6,7 @@ import { buildTracks, particleFrame } from "./particles";
 import { baseStyle, INDIA_BOUNDS, LABEL_LAYERS, ROAD_LAYERS } from "./style";
 
 export const SEGMENT_MIN_ZOOM = 9.5;
+export const POINT_LOOKUP_MIN_ZOOM = 10;
 const EMPTY: GeoJSON.FeatureCollection = { type: "FeatureCollection", features: [] };
 const levelColor: maplibregl.ExpressionSpecification = [
   "match",
@@ -49,10 +50,12 @@ type Props = {
   segments: SegmentCollection | null;
   boundary: SearchResult | null;
   places: Place[];
-  selectedId: string | null;
+  selectedLine: number[][] | null;
+  trafficTiles: boolean;
   attribution: string | null;
   onMove: (view: { bbox: BBox; zoom: number }) => void;
   onSegment: (id: string) => void;
+  onMapClick: ((lat: number, lon: number, zoom: number) => void) | null;
   onMapError: (message: string) => void;
 };
 
@@ -74,7 +77,7 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(props, ref)
   const callbacks = useRef(props);
   const attrib = useRef<maplibregl.AttributionControl | null>(null);
   const [ready, setReady] = useState(false);
-  const { toggles, national, segments, boundary, places, selectedId, attribution } = props;
+  const { toggles, national, segments, boundary, places, selectedLine, trafficTiles, attribution } = props;
 
   useEffect(() => {
     callbacks.current = props;
@@ -114,7 +117,7 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(props, ref)
     });
 
     map.on("load", () => {
-      for (const id of ["boundary", "segments", "places", "particles", "cities"]) {
+      for (const id of ["boundary", "segments", "selected-line", "places", "particles", "cities"]) {
         map.addSource(id, { type: "geojson", data: EMPTY });
       }
       map.addSource("hotspots", {
@@ -159,17 +162,14 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(props, ref)
       map.addLayer({
         id: "segment-selected",
         type: "line",
-        source: "segments",
-        filter: ["==", ["get", "id"], ""],
+        source: "selected-line",
         layout: { "line-cap": "round", "line-join": "round" },
         paint: {
           "line-color": "#fff",
-          "line-width": ["interpolate", ["linear"], ["zoom"], 9, 4, 16, 11],
-          "line-opacity": 0.85,
-          "line-offset": ["interpolate", ["linear"], ["zoom"], 9, 0.5, 16, 4],
+          "line-width": ["interpolate", ["linear"], ["zoom"], 9, 3, 16, 7],
+          "line-opacity": 0.9,
         },
       });
-      map.moveLayer("segment-selected", "segments-line");
       map.addLayer({
         id: "segments-hit",
         type: "line",
@@ -283,6 +283,12 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(props, ref)
         map.flyTo({ center: (f.geometry as GeoJSON.Point).coordinates as [number, number], zoom: 14, padding: clearArea(), duration: 1600 });
         if (f.properties.id) callbacks.current.onSegment(f.properties.id);
       });
+      map.on("click", (e) => {
+        const click = callbacks.current.onMapClick;
+        if (!click || map.getZoom() < POINT_LOOKUP_MIN_ZOOM) return;
+        if (map.queryRenderedFeatures(e.point, { layers: ["hotspot-cluster", "hotspot-point"] }).length) return;
+        click(e.lngLat.lat, e.lngLat.lng, map.getZoom());
+      });
       map.on("moveend", () => callbacks.current.onMove(currentView(map)));
       callbacks.current.onMove(currentView(map));
       setReady(true);
@@ -318,7 +324,19 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(props, ref)
     vis(["segments-casing", "segments-line", "segments-hit", "segment-selected"], toggles.traffic);
     vis(["hotspot-cluster", "hotspot-count", "hotspot-point", "city-unavailable"], toggles.hotspots);
     vis(["particles"], toggles.particles);
-  }, [ready, toggles.hybrid, toggles.roads, toggles.traffic, toggles.hotspots, toggles.particles]);
+    vis(["flow-tiles"], toggles.traffic);
+  }, [ready, trafficTiles, toggles.hybrid, toggles.roads, toggles.traffic, toggles.hotspots, toggles.particles]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!ready || !map || !trafficTiles || map.getSource("flow-tiles")) return;
+    map.addSource("flow-tiles", {
+      type: "raster",
+      tiles: [`${window.location.origin}/api/traffic/tiles/{z}/{x}/{y}.png`],
+      tileSize: 256,
+    });
+    map.addLayer({ id: "flow-tiles", type: "raster", source: "flow-tiles" }, "state-lines");
+  }, [ready, trafficTiles]);
 
   useEffect(() => {
     if (ready) mapRef.current?.easeTo({ pitch: toggles.threeD ? 55 : 0, duration: 700 });
@@ -370,8 +388,12 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(props, ref)
   }, [ready, places]);
 
   useEffect(() => {
-    if (ready) mapRef.current?.setFilter("segment-selected", ["==", ["get", "id"], selectedId ?? ""]);
-  }, [ready, selectedId]);
+    if (!ready) return;
+    const data: GeoJSON.GeoJSON = selectedLine
+      ? { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: selectedLine } }
+      : EMPTY;
+    setData(mapRef.current!, "selected-line", data);
+  }, [ready, selectedLine]);
 
   useEffect(() => {
     const map = mapRef.current;

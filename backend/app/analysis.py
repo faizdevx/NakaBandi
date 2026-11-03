@@ -138,6 +138,7 @@ def build_report(
     retrieved_at: str,
     generated_at: str,
     stale: bool,
+    incidents_available: bool = True,
 ) -> dict:
     summary = summarize(records)
     worst = worst_segments(records)
@@ -162,6 +163,15 @@ def build_report(
         limitations.append("Provider was unreachable: figures are the last good retrieval.")
     if not history["available"]:
         limitations.append(history["reason"])
+    if not incidents_available:
+        limitations.append("Incident lookup failed: incidents may exist that are not listed here.")
+    if not provider["capabilities"].get("bbox_flow", True):
+        limitations.append(
+            f"{provider['name']} answers one point per request: figures come from a grid sample of nearby "
+            "roads, not every road in the area."
+        )
+    if not provider["capabilities"].get("road_names", True):
+        limitations.append("Road names come from OpenStreetMap at the road midpoint and may name a nearby road.")
 
     return {
         "area": area,
@@ -175,6 +185,7 @@ def build_report(
         },
         "incidents": incidents[:30],
         "incident_count": len(incidents),
+        "incidents_available": incidents_available,
         "insufficient_data": {
             "unmeasured_km": summary["km_by_level"]["unavailable"],
             "roads": [{"road_name": n, "km": round(k, 2)} for n, k in gaps],

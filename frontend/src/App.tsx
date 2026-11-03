@@ -9,7 +9,7 @@ import { SettingsDrawer } from "./components/SettingsDrawer";
 import { GameOver, PanelNotice } from "./components/Signs";
 import { Splash } from "./components/Splash";
 import { TopBar } from "./components/TopBar";
-import { MapView, SEGMENT_MIN_ZOOM, type MapHandle } from "./map/MapView";
+import { MapView, POINT_LOOKUP_MIN_ZOOM, SEGMENT_MIN_ZOOM, type MapHandle } from "./map/MapView";
 import type { BBox, Brief, National, Place, Report, SearchResult, SegmentCollection, SegmentDetail, Status, Toggles } from "./types";
 
 const SPLASH_KEY = "nakabandi.started";
@@ -48,7 +48,6 @@ export default function App() {
   const [boundary, setBoundary] = useState<SearchResult | null>(null);
   const [places, setPlaces] = useState<Place[]>([]);
   const [side, setSide] = useState<Side>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detail, setDetail] = useState<SegmentDetail | null>(null);
   const [report, setReport] = useState<Report | null>(null);
   const [sideBusy, setSideBusy] = useState(false);
@@ -58,6 +57,8 @@ export default function App() {
   const segmentAbort = useRef<AbortController | null>(null);
 
   const noProvider = status !== null && status.provider === null;
+  const caps = status?.provider?.capabilities;
+  const bboxFlow = !!caps?.bbox_flow;
 
   const loadStatus = useCallback(async () => {
     try {
@@ -84,7 +85,7 @@ export default function App() {
   const loadSegments = useCallback(
     async (v: { bbox: BBox; zoom: number }) => {
       segmentAbort.current?.abort();
-      if (v.zoom < SEGMENT_MIN_ZOOM) {
+      if (!bboxFlow || v.zoom < SEGMENT_MIN_ZOOM) {
         setSegments(null);
         setNotice(null);
         return;
@@ -103,7 +104,7 @@ export default function App() {
         if (segmentAbort.current === ctl) setSegmentsLoading(false);
       }
     },
-    [],
+    [bboxFlow],
   );
 
   useEffect(() => {
@@ -124,13 +125,12 @@ export default function App() {
     [loadSegments],
   );
 
-  const openSegment = useCallback(async (id: string) => {
-    setSelectedId(id);
+  const showRoad = useCallback(async (load: Promise<SegmentDetail>) => {
     setSide("road");
     setSideBusy(true);
     setSideError(null);
     try {
-      setDetail(await api.segment(id));
+      setDetail(await load);
     } catch (e) {
       setDetail(null);
       setSideError((e as Error).message);
@@ -138,6 +138,12 @@ export default function App() {
       setSideBusy(false);
     }
   }, []);
+
+  const openSegment = useCallback((id: string) => void showRoad(api.segment(id)), [showRoad]);
+  const openAt = useCallback(
+    (lat: number, lon: number, zoom: number) => void showRoad(api.segmentAt(lat, lon, zoom)),
+    [showRoad],
+  );
 
   const runReport = useCallback(async (name: string, bbox: BBox) => {
     setSide("report");
@@ -219,7 +225,9 @@ export default function App() {
         segments={segments}
         boundary={boundary}
         places={places}
-        selectedId={selectedId}
+        selectedLine={side === "road" && detail ? detail.segment.geometry : null}
+        trafficTiles={!!caps?.flow_tiles}
+        onMapClick={caps?.point_lookup ? openAt : null}
         attribution={status?.provider?.attribution ?? null}
         onMove={onMove}
         onSegment={openSegment}
@@ -228,7 +236,7 @@ export default function App() {
 
       <TopBar
         feed={feed}
-        time={meta?.observed_at ?? national?.observed_at ?? null}
+        time={meta?.observed_at ?? national?.observed_at ?? national?.retrieved_at ?? null}
         refreshing={nationalLoading || segmentsLoading}
         onRefresh={refresh}
         onSettings={() => setSettingsOpen(true)}
@@ -251,6 +259,7 @@ export default function App() {
 
       <MapControls
         toggles={toggles}
+        canSimulate={!!caps?.travel_direction}
         onToggle={(k) => setToggles((t) => ({ ...t, [k]: !t[k] }))}
         onReset={() => {
           map.current?.reset();
@@ -273,7 +282,6 @@ export default function App() {
                 className="btn"
                 onClick={() => {
                   setSide(null);
-                  setSelectedId(null);
                 }}
               >
                 Close
@@ -307,7 +315,7 @@ export default function App() {
         retrievedAt={meta?.retrieved_at ?? national?.retrieved_at ?? null}
         coverage={meta?.summary.coverage ?? national?.coverage ?? null}
         stale={!!(meta?.stale || national?.stale)}
-        notice={notice}
+        notice={notice ?? (caps?.point_lookup && view && view.zoom >= POINT_LOOKUP_MIN_ZOOM ? "Click any road to inspect it" : null)}
         particles={toggles.particles}
         canReport={!!status?.provider && !!view && view.zoom >= SEGMENT_MIN_ZOOM}
         onReportView={() => view && void runReport("Current view", clampIndia(view.bbox))}

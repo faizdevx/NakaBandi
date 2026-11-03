@@ -40,8 +40,9 @@ class History:
             s, o = r["segment"], r["observation"]
             wkt = "LINESTRING(" + ",".join(f"{x} {y}" for x, y in s["geometry"]) + ")"
             seg_rows.append((s["id"], s["road_name"], s["road_class"], s["length_km"], s["direction"], wkt))
-            if o["data_basis"] == "realtime" and o["observed_at"] and o["speed_kmh"] is not None:
-                observed = datetime.fromisoformat(o["observed_at"])
+            if o["data_basis"] == "realtime" and o["speed_kmh"] is not None:
+                # Not every provider timestamps its data; retrieval time is then the best known time.
+                observed = datetime.fromisoformat(o["observed_at"] or o["retrieved_at"])
                 obs_rows.append(
                     (s["id"], o["provider"], observed, o["speed_kmh"], o["free_flow_speed_kmh"], o["confidence"])
                 )

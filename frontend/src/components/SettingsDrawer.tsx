@@ -109,7 +109,9 @@ export function SettingsDrawer({ status, onClose, onSaved }: { status: Status | 
         <div className="mt-2 text-sm">
           <p className="font-bold">{providerName(status.provider.name)}</p>
           <ul className="mt-1 text-xs">
-            {Object.entries(status.provider.capabilities).map(([k, v]) => (
+            {Object.entries(status.provider.capabilities)
+              .filter(([k]) => k in CAPABILITIES)
+              .map(([k, v]) => (
               <li key={k} className="flex justify-between border-b border-white/10 py-0.5">
                 <span>{CAPABILITIES[k] ?? k}</span>
                 <span className={v ? "text-free font-bold" : "text-severe font-bold"}>{v ? "Yes" : "No"}</span>
@@ -118,10 +120,10 @@ export function SettingsDrawer({ status, onClose, onSaved }: { status: Status | 
           </ul>
         </div>
       ) : (
-        <p className="text-muted mt-2 text-sm">No provider configured. Set HERE_API_KEY on the server.</p>
+        <p className="text-muted mt-2 text-sm">No provider configured. Set TOMTOM_API_KEY on the server.</p>
       )}
       <p className="text-muted mt-3 text-xs">
-        Historical archive: {status?.history_enabled ? "on" : "off"}. Geocoding: OpenStreetMap Nominatim. Places: Overpass. Base map:
+        Historical archive: {status?.history_enabled ? "on" : "off"}. Geocoding: OpenStreetMap Nominatim. Places: Overpass. Road names, where the provider has none: Nominatim. Base map:
         OpenFreeMap and Esri World Imagery.
       </p>
     </aside>

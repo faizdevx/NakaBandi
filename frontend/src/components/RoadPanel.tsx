@@ -48,10 +48,10 @@ export function RoadPanel(props: {
         <Row k="Travel-time delay" v={props.detail.delay_seconds === null ? "n/a" : `${fmtDuration(props.detail.delay_seconds)} (derived)`} />
         <Row k="Category" v={s.road_class ?? missing} />
         <Row k="Length" v={`${s.length_km.toFixed(2)} km`} />
-        <Row k="Heading" v={s.direction ?? "n/a"} />
+        <Row k="Heading" v={s.direction ?? missing} />
         <Row k="Provider confidence" v={o.confidence === null ? missing : o.confidence.toFixed(2)} />
         <Row k="Source" v={provider.attribution} />
-        <Row k="Observed" v={fmtTime(o.observed_at)} />
+        <Row k="Observed" v={o.observed_at ? fmtTime(o.observed_at) : missing} />
         <Row k="Retrieved" v={fmtTime(o.retrieved_at)} />
       </dl>
 

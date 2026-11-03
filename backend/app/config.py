@@ -4,13 +4,19 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=(".env", "../.env"), extra="ignore")
 
+    tomtom_api_key: str = ""
     here_api_key: str = ""
     redis_url: str = ""
     database_url: str = ""
     admin_token: str = ""
 
-    flow_ttl_seconds: int = 300
-    national_ttl_seconds: int = 1800
+    flow_ttl_seconds: int = 900
+    national_ttl_seconds: int = 10800
+
+    # Daily guards that keep TomTom inside its free monthly quota (20K flow, 200K tiles, 2.5K incidents).
+    flow_daily_budget: int = 600
+    tile_daily_budget: int = 6000
+    incident_daily_budget: int = 75
 
     geo_user_agent: str = "Nakabandi/0.1 (https://github.com/faizdevx/NakaBandi)"
     nominatim_url: str = "https://nominatim.openstreetmap.org"

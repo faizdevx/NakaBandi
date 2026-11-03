@@ -78,7 +78,9 @@ export function ReportPanel({ report: r, aiReady, onRoad }: { report: Report; ai
 
       <hr className="lane" />
       <span className="plate">Incidents ({r.incident_count})</span>
-      {r.incidents.length === 0 ? (
+      {!r.incidents_available ? (
+        <p className="text-heavy mt-2 text-sm">Incident lookup failed, so incidents may exist that are not listed.</p>
+      ) : r.incidents.length === 0 ? (
         <p className="text-muted mt-2 text-sm">None reported by {name}.</p>
       ) : (
         <ul className="mt-2 space-y-1 text-xs">

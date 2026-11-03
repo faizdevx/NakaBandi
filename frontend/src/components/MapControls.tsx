@@ -11,12 +11,13 @@ const ITEMS: { key: keyof Toggles; short: string; label: string }[] = [
 
 export function MapControls(props: {
   toggles: Toggles;
+  canSimulate: boolean;
   onToggle: (key: keyof Toggles) => void;
   onReset: () => void;
 }) {
   return (
     <div className="panel absolute top-28 right-3 z-20 flex flex-col gap-1 p-1 md:top-20" role="group" aria-label="Map layers">
-      {ITEMS.map((i) => {
+      {ITEMS.filter((i) => i.key !== "particles" || props.canSimulate).map((i) => {
         const on = props.toggles[i.key];
         return (
           <button

@@ -40,4 +40,4 @@ export function fmtDuration(seconds: number): string {
 }
 
 export const roadName = (name: string | null | undefined) => name || "Unnamed road";
-export const providerName = (name: string) => (name === "here" ? "HERE" : name);
+export const providerName = (name: string) => ({ here: "HERE", tomtom: "TomTom" })[name] ?? name;

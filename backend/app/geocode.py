@@ -34,31 +34,41 @@ def parse_search(rows: list[dict]) -> list[dict]:
     return out
 
 
-async def search(client, q: str) -> list[dict]:
+async def _nominatim(client, path: str, params: dict):
     global _last
     # shortcut: spacing is per process, run one API worker or self-host Nominatim to scale.
     async with _lock:
         await asyncio.sleep(max(0.0, 1.0 - (time.monotonic() - _last)))
         try:
-            rows = await request_json(
+            return await request_json(
                 client,
                 "nominatim",
                 "GET",
-                f"{settings.nominatim_url}/search",
-                params={
-                    "q": q,
-                    "countrycodes": "in",
-                    "format": "jsonv2",
-                    "limit": 8,
-                    "polygon_geojson": 1,
-                    "polygon_threshold": 0.002,
-                },
+                f"{settings.nominatim_url}/{path}",
+                params=params,
                 headers=headers(),
                 retries=1,
             )
         finally:
             _last = time.monotonic()
-    return parse_search(rows)
+
+
+async def search(client, q: str) -> list[dict]:
+    params = {
+        "q": q,
+        "countrycodes": "in",
+        "format": "jsonv2",
+        "limit": 8,
+        "polygon_geojson": 1,
+        "polygon_threshold": 0.002,
+    }
+    return parse_search(await _nominatim(client, "search", params))
+
+
+async def road_name(client, lat: float, lon: float) -> str | None:
+    params = {"lat": lat, "lon": lon, "zoom": 17, "format": "jsonv2"}
+    row = await _nominatim(client, "reverse", params)
+    return (row.get("address") or {}).get("road")
 
 
 def overpass_query(b: dict) -> str:
