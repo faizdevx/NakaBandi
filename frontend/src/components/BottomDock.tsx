@@ -12,7 +12,7 @@ export function BottomDock(props: {
   onReportView: () => void;
 }) {
   return (
-    <div className="panel absolute bottom-6 left-3 z-10 flex max-w-[calc(100%-1.5rem)] flex-wrap items-center gap-x-4 gap-y-1 px-3 py-1.5 text-xs md:left-1/2 md:max-w-[60%] md:-translate-x-1/2">
+    <div className="panel absolute bottom-14 left-3 z-10 md:bottom-6 flex max-w-[calc(100%-1.5rem)] flex-wrap items-center gap-x-4 gap-y-1 px-3 py-1.5 text-xs md:left-1/2 md:max-w-[60%] md:-translate-x-1/2">
       <div className="flex items-center gap-2.5" aria-label="Congestion legend">
         <span className="flex items-center gap-1">
           <Diamond size={15} color="#22c55e" /> Free
