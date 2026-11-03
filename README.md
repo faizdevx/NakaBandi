@@ -1,124 +1,305 @@
-# NAKABANDI
+<p align="center">
+  <img src="docs/logo.png" alt="Nakabandi" width="420" />
+</p>
 
-Camera-free traffic intelligence for India. A satellite map, measured road speeds from a traffic API, deterministic analytics, and reports that state where their numbers came from and what is missing.
+<p align="center"><strong>Camera-free traffic intelligence for India.</strong><br />Live road speeds on a satellite map, with every number traced to its source.</p>
 
-Nakabandi shows no sample data. Without a provider key it says so, and the map and search keep working.
+## Stack
+
+<table>
+  <tr>
+    <td valign="top" width="50%">
+      <strong>Frontend</strong><br /><br />
+      <img src="https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" alt="React" />
+      <img src="https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" />
+      <img src="https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white" alt="Vite" />
+      <img src="https://img.shields.io/badge/Tailwind_CSS-0F172A?style=for-the-badge&logo=tailwindcss&logoColor=38BDF8" alt="Tailwind CSS" />
+      <img src="https://img.shields.io/badge/MapLibre_GL-396CB2?style=for-the-badge&logo=maplibre&logoColor=white" alt="MapLibre GL" />
+      <img src="https://img.shields.io/badge/Recharts-22B5BF?style=for-the-badge" alt="Recharts" />
+    </td>
+    <td valign="top" width="50%">
+      <strong>Backend</strong><br /><br />
+      <img src="https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python" />
+      <img src="https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI" />
+      <img src="https://img.shields.io/badge/Pydantic-E92063?style=for-the-badge&logo=pydantic&logoColor=white" alt="Pydantic" />
+      <img src="https://img.shields.io/badge/HTTPX-1F2937?style=for-the-badge" alt="HTTPX" />
+    </td>
+  </tr>
+  <tr>
+    <td valign="top">
+      <strong>Data and infrastructure</strong><br /><br />
+      <img src="https://img.shields.io/badge/Redis-DC382D?style=for-the-badge&logo=redis&logoColor=white" alt="Redis" />
+      <img src="https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white" alt="PostgreSQL" />
+      <img src="https://img.shields.io/badge/PostGIS-336791?style=for-the-badge" alt="PostGIS" />
+      <img src="https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker" />
+      <img src="https://img.shields.io/badge/nginx-009639?style=for-the-badge&logo=nginx&logoColor=white" alt="nginx" />
+    </td>
+    <td valign="top">
+      <strong>Data services</strong><br /><br />
+      <img src="https://img.shields.io/badge/TomTom_Traffic-DF1B12?style=for-the-badge" alt="TomTom Traffic" />
+      <img src="https://img.shields.io/badge/OpenStreetMap-7EBC6F?style=for-the-badge&logo=openstreetmap&logoColor=white" alt="OpenStreetMap" />
+      <img src="https://img.shields.io/badge/Esri_Imagery-0079C1?style=for-the-badge" alt="Esri World Imagery" />
+      <img src="https://img.shields.io/badge/OpenFreeMap-2E7D32?style=for-the-badge" alt="OpenFreeMap" />
+    </td>
+  </tr>
+  <tr>
+    <td valign="top">
+      <strong>Testing and quality</strong><br /><br />
+      <img src="https://img.shields.io/badge/pytest-0A9EDC?style=for-the-badge&logo=pytest&logoColor=white" alt="pytest" />
+      <img src="https://img.shields.io/badge/Vitest-6E9F18?style=for-the-badge&logo=vitest&logoColor=white" alt="Vitest" />
+      <img src="https://img.shields.io/badge/Playwright-2EAD33?style=for-the-badge" alt="Playwright" />
+      <img src="https://img.shields.io/badge/Ruff-30173D?style=for-the-badge&logo=ruff&logoColor=white" alt="Ruff" />
+      <img src="https://img.shields.io/badge/ESLint-4B32C3?style=for-the-badge&logo=eslint&logoColor=white" alt="ESLint" />
+    </td>
+    <td valign="top">
+      <strong>Optional AI adapters</strong><br /><br />
+      <img src="https://img.shields.io/badge/OpenAI-111111?style=for-the-badge&logo=openai&logoColor=white" alt="OpenAI" />
+      <img src="https://img.shields.io/badge/Gemini-8E75B2?style=for-the-badge&logo=googlegemini&logoColor=white" alt="Google Gemini" />
+      <img src="https://img.shields.io/badge/Ollama-000000?style=for-the-badge&logo=ollama&logoColor=white" alt="Ollama" />
+    </td>
+  </tr>
+</table>
+
+## About
+
+*Nakabandi* is the Hindi word for a road checkpoint. This one uses no cameras. It reads traffic data from a provider API, draws it on a satellite map of India, and runs the analysis in plain, testable code.
+
+It has one firm rule: a number must never look more certain than it is. Live measurements, historical fallbacks and modelled estimates are kept apart and labelled. If the data is missing, the app says so instead of filling the gap.
+
+## What the app does
+
+### Map
+- Opens on all of India, on Esri satellite imagery with OpenStreetMap roads, boundaries and labels.
+- Colours roads by live congestion, using TomTom's traffic tiles so the colours sit on the real roads.
+- Marks congested spots from a 12-city sample as hotspots. Nearby ones cluster at national zoom.
+- Supports zoom, pan, rotate and a tilted 3D view.
+
+| Control | Action |
+|---|---|
+| `HYB` | Labels and boundaries on or off |
+| `TRF` | Traffic colours on or off |
+| `RDS` | Road network on or off |
+| `HOT` | Hotspots on or off |
+| `3D` | Tilt the map |
+| `SIM` | Illustrative flow dots, clearly labelled as simulated. Hidden with TomTom, because its road direction is not documented |
+| `IND` | Back to the full India view |
+
+### Search
+Type a city, state, district, locality, landmark or road and press Enter. The map flies there and outlines the boundary when one exists. City-sized places also load localities, landmarks and traffic signals, and start a report.
+
+### Road inspection
+Zoom to city level and click a road to see:
+- Current and free-flow speed, travel-time delay, category and length
+- Provider confidence, data source and retrieval time
+- Incidents reported within about 300 m
+- A modelled vehicle range when the road is slowed
+- A pin button to compare up to 5 roads
+
+### Traffic reports
+A report covers overall condition, severe hotspots, most affected roads, modelled vehicle ranges, incidents, roads without live data, and recommendations that quote the observations behind them. Each one states when it was generated, when the data was retrieved, the provider, the area covered and its limitations.
+
+### National overview
+The left panel shows live coverage, congestion by road length, most congested cities and severe hotspots. It is a sample of 12 cities, not all of India, and it says so.
+
+### AI reading (optional)
+Choose OpenAI, Gemini or Ollama in Settings to get written summaries and ask questions about a report or pinned roads. Without one, reports stay purely statistical.
+
+## How the API science works
+
+```mermaid
+flowchart LR
+    TT[TomTom Traffic] --> API[FastAPI backend]
+    NOM[Nominatim] --> API
+    OVP[Overpass] --> API
+    API --> N[Normalize to one schema]
+    N --> A[Deterministic analysis]
+    A --> C[(Redis cache)]
+    A --> H[(PostGIS archive, optional)]
+    C --> UI[React and MapLibre]
+    ESRI[Esri imagery] --> UI
+    OFM[OpenFreeMap] --> UI
+    A -. evidence only .-> AI[Optional LLM]
+    AI -.-> UI
+```
+
+### Where each piece of data comes from
+
+| Data | Source | Notes |
+|---|---|---|
+| Road colours on the map | TomTom Raster Flow Tiles | Sent through the backend, so the key never reaches the browser |
+| Speed, free-flow speed, travel times, confidence | TomTom Flow Segment Data | One point per call. The nearest road answers |
+| Incidents | TomTom Incident Details | Closures first, then by severity |
+| Road names, lane tags | OpenStreetMap, via Nominatim reverse | TomTom returns neither |
+| Place search | OpenStreetMap, via Nominatim | Runs on Enter, because its policy bans autocomplete |
+| Localities, landmarks, signals | OpenStreetMap, via Overpass | Shared service, can be slow or fail |
+
+### From speed to congestion
+
+The ratio of current speed `v` to free-flow speed `vf` sets the level shown in panels and reports:
+
+| `v / vf` | Level |
+|---|---|
+| 0.75 or more | Free flow |
+| 0.50 to 0.75 | Moderate |
+| 0.25 to 0.50 | Heavy |
+| Below 0.25, or road closed | Severe |
+| Confidence below 0.7 | No live data |
+
+TomTom documents confidence only as a 0 to 1 quality score, so the 0.7 cut-off is this project's choice. Map tiles use TomTom's own colour scale, so a road's colour can differ slightly from its panel label.
+
+Area figures are weighted by road length. Average speed is harmonic, `Σ L / Σ (L / v)`, because that matches total travel time.
+
+Travel-time delay is `current travel time − free-flow travel time`.
+
+### Sampling an area
+
+TomTom answers one point per call, so an area is read through a grid, and each point snaps to its nearest road:
+
+- City report: 5 × 5 grid at most, 25 calls, within the central 1° × 1°
+- National overview: 12 cities × 4 points, 48 calls
+
+These are samples of nearby roads, not every road. Reports say so.
+
+### Estimating vehicles
+
+TomTom reports no traffic volume, so a true count is not possible from this data. Nakabandi has two separate paths.
+
+**Measured path.** When a provider reports flow `q`, the fundamental relation gives density and a count:
+
+```
+q = k × v
+k = q / v
+N = k × L = (q × L) / v
+```
+
+This path is built and tested, but it stays inactive with TomTom because `q` is never available.
+
+**Modelled path.** With only speed, density is inferred from speed-density models:
+
+```
+Greenshields:  k = kj × (1 − v / vf)
+Underwood:     k = (kj / 2) × ln(vf / v)
+Vehicles:      N = k × L × lanes
+```
+
+| Symbol | Meaning | Source |
+|---|---|---|
+| `v`, `vf` | Current and free-flow speed | TomTom |
+| `L` | Segment length | Calculated from the road shape with the haversine formula |
+| `kj` | Jam density | Assumed: 150 to 200 vehicles/km per lane |
+| `lanes` | Lanes per direction | OpenStreetMap `lanes` tag, or assumed from road type |
+
+The range runs from the lowest to the highest result across both models and both `kj` values, capped at the assumed jam density.
+
+**Worked example:** `v` = 22 km/h, `vf` = 31 km/h, `L` = 1 km, 2 lanes.
+
+```
+Greenshields:  150 × (1 − 22/31) = 43.5    200 × (1 − 22/31) = 58.1
+Underwood:     75 × ln(31/22)    = 25.7    100 × ln(31/22)   = 34.3
+
+Density range: 25.7 to 58.1 vehicles/km per lane
+Vehicles:      about 51 to 116, shown as "50 to 120, modelled estimate, not measured"
+```
+
+**What the app refuses to do:**
+
+| Situation | Result |
+|---|---|
+| Speed at 90% of free-flow or more | "Light traffic, count unknown", because both models tend to zero |
+| No live data, zero speed or missing inputs | "Cannot estimate" |
+
+**How far to trust it.** Treat the range as a rough scale, not a count:
+- It has not been compared with real counts, so its error is unknown.
+- `kj` is a general reference value, not calibrated for India.
+- Scooters and buses count the same, a poor fit for mixed Indian traffic.
+- Each segment is assumed to carry one direction.
+
+### Keeping the data honest
+
+- **One schema:** providers normalize into `RoadSegment`, `TrafficObservation` and `TrafficEstimate`, so one can be swapped without rewriting the app. TomTom is active, and a HERE adapter is included.
+- **Failures:** rate limits and server errors retry with backoff. If a provider still fails, the last good data is shown and marked STALE.
+- **AI limits:** models receive computed evidence and never produce the figures. Any number in an answer that is not in the evidence is flagged in the UI.
+- **Secrets:** keys stay on the server, in `.env`, which git ignores.
+
+### Staying on the free tier
+
+| Action | TomTom calls | Cached for |
+|---|---|---|
+| National overview | 48 flow | 3 hours |
+| City report | Up to 25 flow, 1 incident | 15 minutes |
+| Clicking a road | 1 flow, 1 incident | 15 minutes |
+| Map traffic layer | 1 per tile | Not cached, TomTom sends `no-store` |
+
+The API stops calling TomTom for the day at 600 flow, 6000 tile and 75 incident calls. Change this with `FLOW_DAILY_BUDGET`, `TILE_DAILY_BUDGET` and `INCIDENT_DAILY_BUDGET`. The counters reset when the API restarts.
 
 ## Run it
 
-Get a free [TomTom](https://developer.tomtom.com) API key (no card), then:
+Get a free key from [TomTom](https://developer.tomtom.com). Put it in `.env`, never in `.env.example`, because that file is committed.
 
 ```bash
-cp .env.example .env   # set TOMTOM_API_KEY in .env, never in .env.example
+cp .env.example .env
 docker compose up --build
 ```
 
 Open http://localhost:8080.
 
-Without Docker:
+Without Docker, run each part in its own terminal:
 
 ```bash
 cd backend && python -m venv .venv && .venv/Scripts/pip install -e ".[dev]" && .venv/Scripts/uvicorn app.main:app --port 8000
+```
+
+```bash
 cd frontend && npm install && npm run dev
 ```
 
 Open http://localhost:5173.
 
-## What each number means
+To turn on the history archive, set `DATABASE_URL` and run `docker compose --profile history up`. It is off by default until you have checked your provider's storage terms. Reports then compare with the same weekday and hour over the past 28 days, once 20 samples exist.
 
-| Item | Source |
-|---|---|
-| Road colours on the map | TomTom traffic tiles, using TomTom's own colour scale |
-| Speed, free-flow speed, travel times, confidence | TomTom Flow Segment Data |
-| Congestion level in panels | `speed / free-flow`: at least 0.75 free, 0.5 moderate, 0.25 heavy, below that severe |
-| "No live data" | Confidence below 0.7. TomTom documents confidence only as 0 to 1 quality, so this cut-off is Nakabandi's choice |
-| Incidents | TomTom Incident Details |
-| Road names | OpenStreetMap, looked up at the road midpoint, because TomTom returns none. May name a nearby road or find none |
-| Vehicle estimate | `N = q × L / v`, only when the provider reports flow `q` |
-| AI text | Interpretation of computed figures. Numbers not found in the evidence are flagged in the UI |
-
-City reports and the national overview are grid samples, because TomTom answers one point per call. They cover some roads, not all, and say so. The simulated flow dots stay hidden with TomTom because it does not document coordinate order as travel direction.
-
-### Vehicle figures are modelled, not measured
-
-The TomTom and HERE flow documentation lists no traffic-volume field, so no measured count exists. Nakabandi instead infers a range from speed, in `backend/app/estimation.py`:
-
-- Greenshields: `k = kj × (1 − v / vf)`
-- Underwood: `k = (kj / 2) × ln(vf / v)`
-- Vehicles: `N = k × L × lanes`
-
-The range spans both models with jam density `kj` of 150 to 200 vehicles/km per lane. Lanes come from the OpenStreetMap `lanes` tag when present, otherwise an assumed range by road type.
-
-Limits:
-
-- It is not validated, and `kj` is a general reference value, not calibrated for India. The error is unknown.
-- At 90% of free-flow speed or above it shows "Light traffic, count unknown", because both models tend to zero there.
-- All vehicles count alike, which is a poor fit for mixed Indian traffic.
-- Whether a provider segment covers one direction is assumed from its documentation wording.
-
-If a provider ever reports real flow, the measured `q = k × v` estimate is shown instead.
-
-## Provider review
-
-Checked against public documentation in November 2026. TomTom was also tested live for India (Lucknow, Delhi, Bengaluru, Chandigarh).
-
-| | TomTom (in use) | HERE Traffic v7 (adapter included) | Mappls |
-|---|---|---|---|
-| India live flow | Listed in coverage, confirmed live | Coverage page lists India | Marketed, no public coverage detail |
-| Current speed | Yes | Yes | Marketed |
-| Volume (veh/h) | Not documented | Not documented | Not found |
-| Area request | Single point per call | Bounding box up to 1° × 1° | Not found |
-| Road names | No | Not confirmed in docs | Not found |
-| Free tier | 20K flow, 200K tiles, 2.5K incidents per month, no card | No free tier confirmed | No public figures |
-| Attribution and storage terms | Tiles sent as no-store. Terms not fully reviewed | Not verified | Not verified |
-
-Read the provider's terms before commercial use, and before turning on the archive. TomTom is used when both keys are set.
-
-To add a provider, implement `TrafficProvider` in `backend/app/providers/base.py` and normalize into `backend/app/schemas.py`.
-
-## Other services
-
-| Service | Use | Terms to respect |
-|---|---|---|
-| Esri World Imagery | Satellite tiles | Sources disagree on licence: check Esri's terms before commercial use |
-| OpenFreeMap | Roads, boundaries, labels (OSM data) | Attribution required |
-| Nominatim | Search | 1 request per second, no autocomplete, so search runs on Enter |
-| Overpass | Localities, landmarks, signals | Shared and often slow. Commercial use should self-host: set `OVERPASS_URL` |
-
-Boundaries come from OpenStreetMap and are not an official Survey of India depiction. Review this before any public release in India.
-
-## Staying on the free tier
-
-| Action | TomTom calls | Cached |
-|---|---|---|
-| National overview | 48 flow (12 cities × 4 points) | 3 hours |
-| City report | 25 flow + 1 incident | 15 minutes |
-| Clicking a road | 1 flow + 1 incident | 15 minutes |
-| Map traffic layer | 1 tile per tile shown | Not cached, TomTom sends no-store |
-
-The API stops calling TomTom for the day at 600 flow, 6000 tile and 75 incident calls (`FLOW_DAILY_BUDGET`, `TILE_DAILY_BUDGET`, `INCIDENT_DAILY_BUDGET`), then serves the last good data marked STALE where it has one. These counters are per process and reset on restart.
-
-## History
-
-Off by default, because provider storage terms are unverified. To enable: set `DATABASE_URL` and run `docker compose --profile history up`. Reports then compare with the same weekday and hour over the past 28 days, after 20 archived samples.
+To show your own photo on the start screen and in Settings, save it as `frontend/public/theme/ride.jpg`. That folder is git-ignored.
 
 ## Tests
 
 ```bash
 cd backend && .venv/Scripts/python -m pytest && .venv/Scripts/ruff check app tests
+```
+
+```bash
 cd frontend && npm run lint && npm test && npm run build
 ```
 
-Browser test, using the real app with a fixture traffic provider that exists only in `backend/tests`:
+The browser test needs the test server and the dev server running. It uses a fixture traffic provider that exists only in `backend/tests`:
 
 ```bash
 cd backend && .venv/Scripts/python -m tests.e2e_server
+```
+
+```bash
 cd frontend && npm run dev
+```
+
+```bash
 cd frontend && npm run e2e
 ```
 
-`frontend/e2e/live-check.mjs` runs the same flow against the real provider and spends real quota.
+`frontend/e2e/live-check.mjs` runs the same kind of flow against the real provider and spends real quota.
 
-## Theme photo
+## Known limits
 
-To show your motorcycle photo on the start screen and in Settings, save it as `frontend/public/theme/ride.jpg`. This folder is git-ignored, so check you have the rights before committing a photo.
+- Reports and the national overview are samples, not full coverage.
+- Road names come from OpenStreetMap at the road midpoint. They may name a nearby road or find none, and the national hotspot list stays unnamed.
+- TomTom gives no observation time, so the app shows retrieval time instead.
+- The OpenAI, Gemini and Ollama adapters have not been tested against the real services.
+- The PostGIS archive passes its test from Linux containers. Connecting from Windows failed in testing.
+
+## Before a public or commercial launch
+
+- **TomTom:** review the terms, including free-tier commercial use and attribution.
+- **Esri imagery:** sources disagree on the licence, so check Esri's terms.
+- **Overpass:** commercial use should self-host. Set `OVERPASS_URL`.
+- **Boundaries:** they come from OpenStreetMap and are not an official Survey of India depiction.
+
+## Attribution
+
+Traffic data © TomTom. Imagery © Esri, Maxar, Earthstar Geographics and the GIS User Community. Map data © OpenStreetMap contributors. Tiles by OpenFreeMap © OpenMapTiles.
