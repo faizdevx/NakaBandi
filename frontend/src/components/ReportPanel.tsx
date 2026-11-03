@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { fmtPct, fmtTime, LEVEL_COLOR, LEVEL_LABEL, providerName, roadName } from "../format";
+import { fmtPct, fmtTime, fmtVehicleRange, LEVEL_COLOR, LEVEL_LABEL, providerName, roadName } from "../format";
 import type { Brief, Report } from "../types";
 import { AskBox } from "./AskBox";
 import { Aura } from "./Signs";
@@ -11,6 +11,7 @@ function Roads({ rows, onRoad }: { rows: Brief[]; onRoad: (b: Brief) => void }) 
         <tr>
           <th className="font-normal">Road</th>
           <th className="font-normal">Speed / free km/h</th>
+          <th className="font-normal" title="Modelled from speed, not measured">Modelled vehicles</th>
         </tr>
       </thead>
       <tbody>
@@ -23,6 +24,13 @@ function Roads({ rows, onRoad }: { rows: Brief[]; onRoad: (b: Brief) => void }) 
             </td>
             <td className="font-mono" style={{ color: LEVEL_COLOR[r.congestion_level] }}>
               {r.speed_kmh ?? "n/a"} / {r.free_flow_speed_kmh ?? "n/a"}
+            </td>
+            <td className="font-mono">
+              {r.modelled_vehicles_low !== null && r.modelled_vehicles_high !== null
+                ? fmtVehicleRange(r.modelled_vehicles_low, r.modelled_vehicles_high)
+                : r.modelled_status === "light"
+                  ? "light"
+                  : "n/a"}
             </td>
           </tr>
         ))}
@@ -73,8 +81,18 @@ export function ReportPanel({ report: r, aiReady, onRoad }: { report: Report; ai
       {r.density_and_counts.available ? (
         <p className="mt-2 text-sm">{r.density_and_counts.estimates.length} segments have estimates. Click a road for its band.</p>
       ) : (
-        <p className="text-muted mt-2 text-sm">Not available. {r.density_and_counts.reason}</p>
+        <p className="text-muted mt-2 text-sm">Measured counts: not available. {r.density_and_counts.reason}</p>
       )}
+      {r.density_and_counts.modelled.roads > 0 && (
+        <p className="mt-2 text-sm">
+          <strong>{fmtVehicleRange(r.density_and_counts.modelled.count_low, r.density_and_counts.modelled.count_high)} vehicles</strong> on the{" "}
+          {r.density_and_counts.modelled.roads} slowed roads in this sample.{" "}
+          <span className="text-sign font-bold">Modelled estimate, not measured.</span> Not a total for the area.
+        </p>
+      )}
+      <p className="text-muted mt-1 text-xs">
+        {r.density_and_counts.modelled.light_roads} roads near free flow, count unknown. {r.density_and_counts.modelled.unavailable_roads} without live data.
+      </p>
 
       <hr className="lane" />
       <span className="plate">Incidents ({r.incident_count})</span>

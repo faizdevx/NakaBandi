@@ -84,6 +84,7 @@ def segment_brief(r: dict) -> dict:
     seg, obs = r["segment"], r["observation"]
     delay = delay_seconds(obs)
     lon, lat = midpoint(seg["geometry"])
+    modelled = r.get("modelled") or {}
     return {
         "id": seg["id"],
         "road_name": seg["road_name"],
@@ -96,6 +97,9 @@ def segment_brief(r: dict) -> dict:
         "delay_seconds": round(delay) if delay is not None else None,
         "confidence": obs["confidence"],
         "severity": round(severity(r), 3),
+        "modelled_status": modelled.get("status"),
+        "modelled_vehicles_low": round(modelled["count_low"]) if modelled.get("count_low") is not None else None,
+        "modelled_vehicles_high": round(modelled["count_high"]) if modelled.get("count_high") is not None else None,
         "lon": lon,
         "lat": lat,
     }
@@ -127,6 +131,19 @@ def recommendations(summary: dict, worst: list[dict], incidents: list[dict]) -> 
     return out
 
 
+def summarize_modelled(records: list[dict]) -> dict:
+    """Sum over the returned roads only, so it is never a total for the whole area."""
+    rows = [r["modelled"] for r in records if r.get("modelled")]
+    ok = [m for m in rows if m["status"] == "ok"]
+    return {
+        "count_low": round(sum(m["count_low"] for m in ok)),
+        "count_high": round(sum(m["count_high"] for m in ok)),
+        "roads": len(ok),
+        "light_roads": sum(m["status"] == "light" for m in rows),
+        "unavailable_roads": sum(m["status"] == "unavailable" for m in rows),
+    }
+
+
 def build_report(
     area: str,
     bbox: dict,
@@ -154,7 +171,8 @@ def build_report(
     limitations = []
     if not provider["capabilities"].get("traffic_volume"):
         limitations.append(
-            f"{provider['name']} does not report traffic volume, so density and vehicle counts cannot be computed."
+            f"{provider['name']} does not report traffic volume, so no vehicle count here is measured. "
+            "Ranges are modelled from speed with assumed jam density and lanes, and are not validated."
         )
     if clipped:
         limitations.append("Area exceeds one provider request: report covers the central 1° × 1° only.")
@@ -182,6 +200,7 @@ def build_report(
             "available": bool(estimates),
             "estimates": estimates[:20],
             "reason": None if estimates else "No segment has both a measured flow and a speed.",
+            "modelled": summarize_modelled(records),
         },
         "incidents": incidents[:30],
         "incident_count": len(incidents),

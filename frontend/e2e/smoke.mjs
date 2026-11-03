@@ -57,7 +57,7 @@ for (let y = box.y + 100; y < box.y + 780 && !opened; y += 14) {
 }
 assert.ok(opened, "clicking a road on the map opens the inspection panel");
 await page.getByText("Free-flow speed").waitFor({ timeout: 15000 });
-await page.getByText("Cannot estimate.").waitFor();
+await page.getByText(/Modelled estimate, not measured|Light traffic, count unknown|Cannot estimate/).first().waitFor();
 await page.getByText(/Not provided by HERE/).first().waitFor();
 await page.waitForTimeout(5000);
 await shot("4-road");

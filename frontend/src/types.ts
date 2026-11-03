@@ -34,6 +34,9 @@ export type Brief = {
   delay_seconds: number | null;
   confidence: number | null;
   severity: number;
+  modelled_status: Modelled["status"] | null;
+  modelled_vehicles_low: number | null;
+  modelled_vehicles_high: number | null;
   lon: number;
   lat: number;
   city?: string;
@@ -89,6 +92,18 @@ export type Estimate = {
   calculated_at: string;
 };
 
+export type Modelled = {
+  status: "ok" | "light" | "unavailable";
+  density_low: number | null;
+  density_high: number | null;
+  count_low: number | null;
+  count_high: number | null;
+  lanes_low: number | null;
+  lanes_high: number | null;
+  lanes_source: "openstreetmap" | "assumed_from_road_class" | null;
+  notes: string[];
+};
+
 export type SegmentDetail = {
   segment: {
     id: string;
@@ -112,6 +127,7 @@ export type SegmentDetail = {
     data_basis: string;
   };
   estimate: Estimate;
+  modelled: Modelled | null;
   delay_seconds: number | null;
   incidents: Incident[];
   incidents_error: string | null;
@@ -124,7 +140,12 @@ export type Report = {
   overall: Summary;
   hotspots: Brief[];
   most_affected: Brief[];
-  density_and_counts: { available: boolean; estimates: Estimate[]; reason: string | null };
+  density_and_counts: {
+    available: boolean;
+    estimates: Estimate[];
+    reason: string | null;
+    modelled: { count_low: number; count_high: number; roads: number; light_roads: number; unavailable_roads: number };
+  };
   incidents: Incident[];
   incident_count: number;
   incidents_available: boolean;

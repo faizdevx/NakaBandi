@@ -39,5 +39,12 @@ export function fmtDuration(seconds: number): string {
   return m < 60 ? `${m} min ${Math.round(seconds % 60)} s` : `${Math.floor(m / 60)} h ${m % 60} min`;
 }
 
+/** Rounded outward to fives: more digits would claim precision a modelled range does not have. */
+export function fmtVehicleRange(low: number, high: number): string {
+  const lo = Math.max(1, Math.floor(low / 5) * 5);
+  const hi = Math.max(lo, Math.ceil(high / 5) * 5);
+  return lo === hi ? `about ${lo}` : `${lo} to ${hi}`;
+}
+
 export const roadName = (name: string | null | undefined) => name || "Unnamed road";
 export const providerName = (name: string) => ({ here: "HERE", tomtom: "TomTom" })[name] ?? name;

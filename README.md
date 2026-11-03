@@ -39,9 +39,24 @@ Open http://localhost:5173.
 
 City reports and the national overview are grid samples, because TomTom answers one point per call. They cover some roads, not all, and say so. The simulated flow dots stay hidden with TomTom because it does not document coordinate order as travel direction.
 
-### Vehicle counts are currently unavailable
+### Vehicle figures are modelled, not measured
 
-The HERE and TomTom flow documentation lists no traffic-volume field, so `flow_vehicles_per_hour` stays empty and the panel shows "Cannot estimate". Speed alone cannot give a count, and Nakabandi does not guess one. The engine in `backend/app/estimation.py` is implemented and tested, and starts working as soon as a provider supplies flow.
+The TomTom and HERE flow documentation lists no traffic-volume field, so no measured count exists. Nakabandi instead infers a range from speed, in `backend/app/estimation.py`:
+
+- Greenshields: `k = kj × (1 − v / vf)`
+- Underwood: `k = (kj / 2) × ln(vf / v)`
+- Vehicles: `N = k × L × lanes`
+
+The range spans both models with jam density `kj` of 150 to 200 vehicles/km per lane. Lanes come from the OpenStreetMap `lanes` tag when present, otherwise an assumed range by road type.
+
+Limits:
+
+- It is not validated, and `kj` is a general reference value, not calibrated for India. The error is unknown.
+- At 90% of free-flow speed or above it shows "Light traffic, count unknown", because both models tend to zero there.
+- All vehicles count alike, which is a poor fit for mixed Indian traffic.
+- Whether a provider segment covers one direction is assumed from its documentation wording.
+
+If a provider ever reports real flow, the measured `q = k × v` estimate is shown instead.
 
 ## Provider review
 

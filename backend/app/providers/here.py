@@ -9,7 +9,7 @@ from typing import ClassVar
 
 from ..analysis import classify, travel_time_seconds
 from ..cache import utcnow
-from ..estimation import estimate_vehicles
+from ..estimation import estimate_vehicles, model_vehicles
 from ..geo import compass, line_length_km
 from ..http import request_json
 from ..schemas import BBox, FlowBatch, Incident, RoadSegment, TrafficObservation, TrafficRecord
@@ -94,7 +94,8 @@ def normalize_flow(payload: dict, retrieved_at: datetime) -> FlowBatch:
             },
         )
         estimate = estimate_vehicles(seg_id, None, speed_kmh, length_km, confidence)
-        records.append(TrafficRecord(segment=segment, observation=observation, estimate=estimate))
+        modelled = model_vehicles(seg_id, speed_kmh, free_kmh, length_km, segment.road_class, basis)
+        records.append(TrafficRecord(segment=segment, observation=observation, estimate=estimate, modelled=modelled))
     return FlowBatch(provider="here", source_updated=source_updated, retrieved_at=retrieved_at, records=records)
 
 

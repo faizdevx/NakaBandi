@@ -10,7 +10,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field
 
-from . import ai, analysis, geo, geocode
+from . import ai, analysis, estimation, geo, geocode
 from .cache import Cache, utcnow
 from .config import settings
 from .history import History
@@ -207,13 +207,24 @@ async def named(request: Request, provider, record: dict) -> dict:
     lon, lat = geo.midpoint(record["segment"]["geometry"])
 
     async def load():
-        return {"name": await geocode.road_name(state.client, lat, lon)}
+        return await geocode.road_info(state.client, lat, lon)
 
     try:
         found, _ = await state.cache.fetch(f"rev:{lat:.4f}:{lon:.4f}", 30 * 86400, load)
     except UpstreamError:
         return record
-    record["segment"]["road_name"] = found["name"]
+    seg, obs = record["segment"], record["observation"]
+    seg["road_name"] = found["name"]
+    if found["lanes"]:
+        record["modelled"] = estimation.model_vehicles(
+            seg["id"],
+            obs["speed_kmh"],
+            obs["free_flow_speed_kmh"],
+            seg["length_km"],
+            seg["road_class"],
+            obs["data_basis"],
+            found["lanes"],
+        ).model_dump(mode="json")
     await state.cache.set(f"seg:{record['segment']['id']}", record, SEGMENT_TTL)
     return record
 

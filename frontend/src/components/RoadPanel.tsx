@@ -1,4 +1,4 @@
-import { fmtDuration, fmtTime, LEVEL_COLOR, LEVEL_LABEL, providerName, roadName } from "../format";
+import { fmtDuration, fmtTime, fmtVehicleRange, LEVEL_COLOR, LEVEL_LABEL, providerName, roadName } from "../format";
 import type { SegmentDetail } from "../types";
 import { AskBox } from "./AskBox";
 import { DeadEnd } from "./Signs";
@@ -26,7 +26,7 @@ export function RoadPanel(props: {
   onPin: () => void;
   onUnpin: (id: string) => void;
 }) {
-  const { segment: s, observation: o, estimate: e, provider } = props.detail;
+  const { segment: s, observation: o, estimate: e, modelled: m, provider } = props.detail;
   const name = providerName(o.provider);
   const missing = <span className="text-muted font-normal">Not provided by {name}</span>;
   const unit = (v: number | null, u: string) => (v === null ? missing : `${v.toFixed(1)} ${u}`);
@@ -57,14 +57,7 @@ export function RoadPanel(props: {
 
       <hr className="lane" />
       <span className="plate">Estimated vehicles</span>
-      {e.status === "unavailable" ? (
-        <div className="mt-2 flex items-center gap-3 [&>svg]:shrink-0">
-          <DeadEnd size={64} />
-          <p className="text-sm">
-            <strong>Cannot estimate.</strong> {e.notes.join(" ")} Nakabandi does not invent volume.
-          </p>
-        </div>
-      ) : (
+      {e.status !== "unavailable" ? (
         <div className="mt-2">
           <div className="text-3xl font-black">≈ {Math.round(e.estimated_vehicle_count!)} vehicles</div>
           {e.count_low !== null && e.count_high !== null && (
@@ -79,6 +72,32 @@ export function RoadPanel(props: {
               <li key={n}>{n}</li>
             ))}
           </ul>
+        </div>
+      ) : m?.status === "ok" ? (
+        <div className="mt-2">
+          <div className="text-3xl font-black">{fmtVehicleRange(m.count_low!, m.count_high!)} vehicles</div>
+          <div className="text-sign mt-1 text-sm font-bold">Modelled estimate, not measured</div>
+          <div className="mt-1 text-sm">
+            {m.density_low!.toFixed(0)} to {m.density_high!.toFixed(0)} vehicles/km per lane,{" "}
+            {m.lanes_low === m.lanes_high ? m.lanes_low : `${m.lanes_low} to ${m.lanes_high}`} lane(s) this way{" "}
+            {m.lanes_source === "openstreetmap" ? "(from OpenStreetMap)" : "(assumed from road type)"}
+          </div>
+          <ul className="text-muted mt-1 list-disc pl-4 text-xs">
+            {m.notes.map((n) => (
+              <li key={n}>{n}</li>
+            ))}
+          </ul>
+        </div>
+      ) : m?.status === "light" ? (
+        <div className="mt-2 text-sm">
+          <strong>Light traffic, count unknown.</strong> {m.notes.join(" ")}
+        </div>
+      ) : (
+        <div className="mt-2 flex items-center gap-3 [&>svg]:shrink-0">
+          <DeadEnd size={64} />
+          <p className="text-sm">
+            <strong>Cannot estimate.</strong> {(m?.notes ?? e.notes).join(" ")} Nakabandi does not invent volume.
+          </p>
         </div>
       )}
 

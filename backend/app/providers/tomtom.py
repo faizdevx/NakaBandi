@@ -12,7 +12,7 @@ from datetime import date, datetime
 from ..analysis import classify, travel_time_seconds
 from ..cache import utcnow
 from ..config import settings
-from ..estimation import estimate_vehicles
+from ..estimation import estimate_vehicles, model_vehicles
 from ..geo import line_length_km
 from ..http import UpstreamError, request_json
 from ..schemas import BBox, FlowBatch, Incident, RoadSegment, TrafficObservation, TrafficRecord
@@ -86,6 +86,7 @@ def normalize_flow(payload: dict, retrieved_at: datetime) -> TrafficRecord | Non
             raw_source_metadata={"frc": d.get("frc"), "roadClosure": closed},
         ),
         estimate=estimate_vehicles(seg_id, None, speed, length_km, confidence),
+        modelled=model_vehicles(seg_id, speed, free, length_km, ROAD_CLASS.get(d.get("frc")), basis),
     )
 
 

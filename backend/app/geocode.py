@@ -1,6 +1,7 @@
 """Nominatim search and Overpass context. Policies: 1 req/s, identifying User-Agent, cache results, no autocomplete."""
 
 import asyncio
+import math
 import time
 
 from .config import settings
@@ -65,10 +66,25 @@ async def search(client, q: str) -> list[dict]:
     return parse_search(await _nominatim(client, "search", params))
 
 
-async def road_name(client, lat: float, lon: float) -> str | None:
-    params = {"lat": lat, "lon": lon, "zoom": 17, "format": "jsonv2"}
+def lanes_per_direction(tags: dict) -> int | None:
+    """OSM `lanes` counts the whole way, so a two-way road is halved. Implausible values are ignored."""
+    try:
+        lanes = int(tags.get("lanes", ""))
+    except ValueError:
+        return None
+    if not 1 <= lanes <= 12:
+        return None
+    return lanes if tags.get("oneway") == "yes" else math.ceil(lanes / 2)
+
+
+async def road_info(client, lat: float, lon: float) -> dict:
+    params = {"lat": lat, "lon": lon, "zoom": 17, "format": "jsonv2", "extratags": 1}
     row = await _nominatim(client, "reverse", params)
-    return (row.get("address") or {}).get("road")
+    on_road = row.get("category") == "highway"
+    return {
+        "name": (row.get("address") or {}).get("road"),
+        "lanes": lanes_per_direction(row.get("extratags") or {}) if on_road else None,
+    }
 
 
 def overpass_query(b: dict) -> str:

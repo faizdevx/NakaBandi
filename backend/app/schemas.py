@@ -48,10 +48,28 @@ class TrafficEstimate(BaseModel):
     calculated_at: datetime
 
 
+class ModelledEstimate(BaseModel):
+    """Inferred from speed plus assumptions. Never a measurement, and kept apart from TrafficEstimate."""
+
+    segment_id: str
+    status: Literal["ok", "light", "unavailable"]
+    density_low: float | None = None  # vehicles/km per lane
+    density_high: float | None = None
+    count_low: float | None = None
+    count_high: float | None = None
+    lanes_low: int | None = None  # per direction
+    lanes_high: int | None = None
+    lanes_source: Literal["openstreetmap", "assumed_from_road_class"] | None = None
+    estimate_method: str
+    notes: list[str] = Field(default_factory=list)
+    calculated_at: datetime
+
+
 class TrafficRecord(BaseModel):
     segment: RoadSegment
     observation: TrafficObservation
     estimate: TrafficEstimate
+    modelled: ModelledEstimate | None = None
 
 
 class Incident(BaseModel):

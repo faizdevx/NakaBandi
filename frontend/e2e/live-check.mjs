@@ -21,14 +21,19 @@ await page.waitForTimeout(8000);
 await page.screenshot({ path: `${shots}/live-1-india.png` });
 console.log("status:", await page.locator("header").innerText());
 
-await page.getByRole("textbox", { name: /Search city/ }).fill("Chandigarh");
+await page.getByRole("textbox", { name: /Search city/ }).fill("Delhi");
 await page.keyboard.press("Enter");
-await page.getByRole("button", { name: /Chandigarh/ }).first().click({ timeout: 15000 });
+await page.getByRole("search").getByRole("button", { name: /Delhi/ }).first().click({ timeout: 15000 });
 await page.getByText("Provenance").waitFor({ timeout: 90000 });
 await page.waitForTimeout(8000);
 await page.screenshot({ path: `${shots}/live-2-city.png` });
 console.log("report:", (await page.getByLabel("Inspection panel").innerText()).slice(0, 500));
 
+await page.getByLabel("Inspection panel").getByRole("button", { name: /road|marg/i }).first().click();
+await page.getByText("Free-flow speed").waitFor({ timeout: 20000 });
+await page.waitForTimeout(3000);
+await page.screenshot({ path: `${shots}/live-5-modelled.png` });
+console.log("modelled:", (await page.getByLabel("Inspection panel").innerText()).slice(0, 700));
 await page.getByLabel("Inspection panel").getByRole("button", { name: "Close" }).click();
 const box = await page.locator(".maplibregl-canvas").boundingBox();
 await page.mouse.move(box.x + 650, box.y + 450);
