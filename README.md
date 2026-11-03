@@ -210,7 +210,9 @@ TomTom answers one point per call, so an area is read through a grid, and each p
 
 These are samples of nearby roads, not every road. Reports say so.
 
-A city's overall level is the worst level reached by at least a quarter of its live road length, counting only road inside the sampled area. An average would hide a jam: in one test, Prayagraj's central roads were 18% congested while a wider box read 100% free. The sample still reads one speed per road, so it can differ from the map, which shows changes along a road.
+A city's overall level is the worst level reached by at least a quarter of its live road length, counting only road inside the sampled area. An average would hide a jam: in one test, Prayagraj's central roads were 18% congested while a wider box read 100% free. The sample still reads one speed per road, so it can differ from the map, which shows changes along a road. The map flies to the sampled area and marks it with a dashed box.
+
+The vehicle total counts only each road's share inside that box. A single road's own figure covers all of that road.
 
 ### Estimating vehicles
 

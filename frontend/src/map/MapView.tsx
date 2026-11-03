@@ -50,6 +50,7 @@ type Props = {
   national: National | null;
   segments: SegmentCollection | null;
   boundary: SearchResult | null;
+  reportArea: BBox | null;
   places: Place[];
   selectedLine: number[][] | null;
   trafficTiles: boolean;
@@ -90,7 +91,7 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(props, ref)
   const flowLayer = useRef<string | null>(null);
   const flowLoading = useRef(false);
   const [ready, setReady] = useState(false);
-  const { toggles, national, segments, boundary, places, selectedLine, trafficTiles, attribution } = props;
+  const { toggles, national, segments, boundary, reportArea, places, selectedLine, trafficTiles, attribution } = props;
 
   useEffect(() => {
     callbacks.current = props;
@@ -164,7 +165,7 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(props, ref)
     });
 
     map.on("load", () => {
-      for (const id of ["boundary", "segments", "selected-line", "places", "particles", "cities"]) {
+      for (const id of ["boundary", "report-area", "segments", "selected-line", "places", "particles", "cities"]) {
         map.addSource(id, { type: "geojson", data: EMPTY });
       }
       map.addSource("hotspots", {
@@ -182,6 +183,12 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(props, ref)
         type: "line",
         source: "boundary",
         paint: { "line-color": "#fff", "line-width": 2.5, "line-dasharray": [3, 2] },
+      });
+      map.addLayer({
+        id: "report-area-line",
+        type: "line",
+        source: "report-area",
+        paint: { "line-color": "#f9b013", "line-width": 3, "line-dasharray": [2, 1.5] },
       });
       map.addLayer({
         id: "segments-casing",
@@ -421,6 +428,19 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(props, ref)
     const area = geom && (geom.type === "Polygon" || geom.type === "MultiPolygon");
     setData(mapRef.current!, "boundary", area ? { type: "Feature", properties: {}, geometry: geom } : EMPTY);
   }, [ready, boundary]);
+
+  useEffect(() => {
+    if (!ready) return;
+    const b = reportArea;
+    const ring = b && [
+      [b.west, b.south],
+      [b.east, b.south],
+      [b.east, b.north],
+      [b.west, b.north],
+      [b.west, b.south],
+    ];
+    setData(mapRef.current!, "report-area", ring ? { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: ring } } : EMPTY);
+  }, [ready, reportArea]);
 
   useEffect(() => {
     if (!ready) return;

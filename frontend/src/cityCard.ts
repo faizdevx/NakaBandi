@@ -140,7 +140,7 @@ function draw(ctx: CanvasRenderingContext2D, r: Report) {
 
   const modelled = r.density_and_counts.modelled;
   if (modelled.roads > 0) {
-    const line = `${fmtVehicleRange(modelled.count_low, modelled.count_high)} vehicles on ${modelled.roads} slowed roads. Modelled estimate, not measured.`;
+    const line = `${fmtVehicleRange(modelled.count_low, modelled.count_high)} vehicles on ${modelled.roads} slowed roads in this area. Modelled estimate, not measured.`;
     ctx.fillStyle = "#f9b013";
     fit(ctx, line, (px) => `800 ${px}px ${OVERPASS}`, 28, width);
     ctx.fillText(line, M, 884);

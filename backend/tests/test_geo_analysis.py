@@ -213,3 +213,39 @@ def test_long_free_road_outside_area_cannot_outvote_a_jam():
     box = {"west": 80.0, "south": 26.0, "east": 80.1, "north": 26.1}
     assert analysis.summarize([jam, highway])["overall"] == "free"
     assert analysis.summarize([jam, highway], box)["overall"] == "heavy"
+
+
+def test_modelled_total_counts_only_road_inside_area():
+    line = [[80.0, 26.05], [80.2, 26.05]]
+    record = {
+        "segment": {"length_km": geo.line_length_km(line), "geometry": line},
+        "modelled": {"status": "ok", "count_low": 100, "count_high": 200},
+    }
+    outside = {
+        "segment": {"length_km": geo.line_length_km(line), "geometry": [[85.0, 26.05], [85.2, 26.05]]},
+        "modelled": {"status": "ok", "count_low": 900, "count_high": 900},
+    }
+    box = {"west": 80.0, "south": 26.0, "east": 80.1, "north": 26.1}
+    # Two vertices, so the only step's midpoint decides; a denser line is cut in proportion.
+    dense = {**record, "segment": {**record["segment"], "geometry": [[80.0 + i / 100, 26.05] for i in range(21)]}}
+    total = analysis.summarize_modelled([dense, outside], box)
+    assert total["roads"] == 1
+    assert total["count_low"] == pytest.approx(50, abs=1) and total["count_high"] == pytest.approx(100, abs=1)
+    assert analysis.summarize_modelled([dense])["count_low"] == 100
+
+
+def test_rank_congested_order_agrees_with_colours():
+    rows = [
+        {"name": "green", "overall": "free", "speed_ratio": 0.79},
+        {"name": "yellow", "overall": "moderate", "speed_ratio": 0.83},
+        {"name": "orange", "overall": "heavy", "speed_ratio": 0.6},
+        {"name": "slower yellow", "overall": "moderate", "speed_ratio": 0.7},
+    ]
+    assert [r["name"] for r in analysis.rank_congested(rows)] == ["orange", "slower yellow", "yellow", "green"]
+
+
+def test_report_hotspots_include_heavy_roads(payload):
+    provider = {"name": "here", "attribution": "x", "capabilities": {"traffic_volume": False}}
+    box = {"west": 66.0, "south": 6.0, "east": 99.0, "north": 38.0}
+    r = analysis.build_report("A", box, False, [rec(payload, speed=4, free=10)], [], {"available": False, "reason": "off"}, provider, "t1", "t2", False)
+    assert r["hotspots"][0]["congestion_level"] == "heavy"

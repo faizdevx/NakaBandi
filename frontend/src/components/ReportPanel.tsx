@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { saveCityCard } from "../cityCard";
+import { cardSticker, saveCityCard } from "../cityCard";
 import { fmtPct, fmtTime, fmtVehicleRange, LEVEL_COLOR, LEVEL_LABEL, providerName, roadName, roadSpeeds } from "../format";
 import type { Brief, Report } from "../types";
 import { AskBox } from "./AskBox";
-import { Aura } from "./Signs";
+import { Aura, GameOver } from "./Signs";
 
 function Roads({ rows, onRoad }: { rows: Brief[]; onRoad: (b: Brief) => void }) {
   return (
@@ -49,13 +49,14 @@ export function ReportPanel({ report: r, aiReady, onRoad }: { report: Report; ai
     return () => clearTimeout(t);
   }, [r.area]);
   const s = r.overall;
+  const sticker = cardSticker(s.overall);
   const name = r.provenance.providers.map(providerName).join(", ");
 
   return (
     <div className="relative">
-      {celebrate && (
+      {celebrate && sticker && (
         <div className="pop pointer-events-none absolute -top-1 right-0 z-10">
-          <Aura className="text-xl" />
+          {sticker === "aura" ? <Aura className="text-xl" /> : <GameOver className="text-xl" />}
         </div>
       )}
       <h2 className="pr-16 text-xl leading-tight font-black">{r.area}</h2>
@@ -64,6 +65,7 @@ export function ReportPanel({ report: r, aiReady, onRoad }: { report: Report; ai
         <span className="font-bold">Overall: {LEVEL_LABEL[s.overall]}</span>
       </div>
       <p className="text-muted mt-1 font-mono text-xs">Speeds fetched {fmtTime(r.provenance.retrieved_at)}</p>
+      <p className="text-sign mt-1 text-xs font-bold">Covers the dashed box on the map</p>
       <p className="mt-2 text-sm">
         {s.avg_speed_kmh !== null
           ? `Live roads average ${s.avg_speed_kmh} km/h against ${s.avg_free_flow_kmh} km/h free-flow, over ${s.measured_km} km measured.`
@@ -85,7 +87,7 @@ export function ReportPanel({ report: r, aiReady, onRoad }: { report: Report; ai
 
       <hr className="lane" />
       <span className="plate">Hotspots</span>
-      {r.hotspots.length ? <Roads rows={r.hotspots} onRoad={onRoad} /> : <p className="text-muted mt-2 text-sm">No severe segments measured.</p>}
+      {r.hotspots.length ? <Roads rows={r.hotspots} onRoad={onRoad} /> : <p className="text-muted mt-2 text-sm">No sampled road averages heavy or severe. The map can still show red stretches, because a sample reads one speed per road.</p>}
 
       <hr className="lane" />
       <span className="plate">Most affected roads</span>
@@ -101,8 +103,8 @@ export function ReportPanel({ report: r, aiReady, onRoad }: { report: Report; ai
       {r.density_and_counts.modelled.roads > 0 && (
         <p className="mt-2 text-sm">
           <strong>{fmtVehicleRange(r.density_and_counts.modelled.count_low, r.density_and_counts.modelled.count_high)} vehicles</strong> on the{" "}
-          {r.density_and_counts.modelled.roads} slowed roads in this sample.{" "}
-          <span className="text-sign font-bold">Modelled estimate, not measured.</span> Not a total for the area.
+          {r.density_and_counts.modelled.roads} slowed roads in this sample, counting only road inside the box.{" "}
+          <span className="text-sign font-bold">Modelled estimate, not measured.</span> Not a total for the area. A road's own figure covers all of it, which can run past the box.
         </p>
       )}
       <p className="text-muted mt-1 text-xs">

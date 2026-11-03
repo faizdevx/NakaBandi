@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import { fmtAgo, fmtClock } from "../format";
 import type { SearchResult } from "../types";
@@ -37,20 +37,23 @@ export function TopBar(props: {
   const [results, setResults] = useState<SearchResult[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const lastSearch = useRef(0);
 
   // Submit-only on purpose: the Nominatim usage policy bans autocomplete.
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (q.trim().length < 2) return;
+    const id = ++lastSearch.current;
     setBusy(true);
     setError(null);
+    setResults(null);
     try {
-      setResults(await api.search(q.trim()));
+      const found = await api.search(q.trim());
+      if (id === lastSearch.current) setResults(found);
     } catch (err) {
-      setResults(null);
-      setError((err as Error).message);
+      if (id === lastSearch.current) setError((err as Error).message);
     } finally {
-      setBusy(false);
+      if (id === lastSearch.current) setBusy(false);
     }
   }
 
@@ -64,7 +67,11 @@ export function TopBar(props: {
       <form onSubmit={submit} className="relative order-last w-full md:order-none md:w-96" role="search">
         <input
           value={q}
-          onChange={(e) => setQ(e.target.value)}
+          onChange={(e) => {
+            setQ(e.target.value);
+            setResults(null);
+            setError(null);
+          }}
           placeholder="Search city, locality, landmark or road, then Enter"
           aria-label="Search city, locality, landmark or road"
           className="bg-tar border-line/60 focus:border-sign w-full rounded border px-3 py-1.5 text-sm outline-none"

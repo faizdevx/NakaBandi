@@ -28,6 +28,12 @@ def travel_time_seconds(length_km: float, speed_kmh: float | None) -> float | No
 OVERALL_SHARE = 0.25
 
 
+def rank_congested(summaries: list[dict]) -> list[dict]:
+    """Worst level first, then slowest, so the order and the colours beside it agree."""
+    order = ("severe", "heavy", "moderate", "free")
+    return sorted(summaries, key=lambda s: (order.index(s["overall"]), s["speed_ratio"]))
+
+
 def delay_seconds(obs: dict) -> float | None:
     t, ff = obs.get("travel_time_seconds"), obs.get("free_flow_travel_time_seconds")
     return max(0.0, t - ff) if t is not None and ff is not None else None
@@ -149,13 +155,20 @@ def recommendations(summary: dict, worst: list[dict], incidents: list[dict]) -> 
     return out
 
 
-def summarize_modelled(records: list[dict]) -> dict:
-    """Sum over the returned roads only, so it is never a total for the whole area."""
-    rows = [r["modelled"] for r in records if r.get("modelled")]
-    ok = [m for m in rows if m["status"] == "ok"]
+def summarize_modelled(records: list[dict], box: dict | None = None) -> dict:
+    """Sum over the returned roads only, so it is never a total for the whole area. Roads count only their share inside box."""
+    shares = []
+    for r in records:
+        if r.get("modelled"):
+            length = r["segment"]["length_km"]
+            share = min(1.0, length_in_box_km(r["segment"]["geometry"], box) / length) if box and length else 1.0
+            if share > 0:
+                shares.append((r["modelled"], share))
+    rows = [m for m, _ in shares]
+    ok = [(m, share) for m, share in shares if m["status"] == "ok"]
     return {
-        "count_low": round(sum(m["count_low"] for m in ok)),
-        "count_high": round(sum(m["count_high"] for m in ok)),
+        "count_low": round(sum(m["count_low"] * share for m, share in ok)),
+        "count_high": round(sum(m["count_high"] * share for m, share in ok)),
         "roads": len(ok),
         "light_roads": sum(m["status"] == "light" for m in rows),
         "unavailable_roads": sum(m["status"] == "unavailable" for m in rows),
@@ -177,7 +190,7 @@ def build_report(
 ) -> dict:
     summary = summarize(records, bbox)
     worst = worst_segments(records)
-    hotspots = [w for w in worst if w["congestion_level"] == "severe"]
+    hotspots = [w for w in worst if w["congestion_level"] in ("severe", "heavy")]
     unmeasured: dict[str, float] = {}
     for r in records:
         if not is_measured(r):
@@ -218,7 +231,7 @@ def build_report(
             "available": bool(estimates),
             "estimates": estimates[:20],
             "reason": None if estimates else "No segment has both a measured flow and a speed.",
-            "modelled": summarize_modelled(records),
+            "modelled": summarize_modelled(records, bbox),
         },
         "incidents": incidents[:30],
         "incident_count": len(incidents),

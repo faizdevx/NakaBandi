@@ -65,6 +65,7 @@ export default function App() {
   const [trafficStale, setTrafficStale] = useState(false);
   const segmentAbort = useRef<AbortController | null>(null);
   const reportAsked = useRef<{ name: string; bbox: BBox } | null>(null);
+  const placesFor = useRef<SearchResult | null>(null);
 
   const noProvider = status !== null && status.provider === null;
   const caps = status?.provider?.capabilities;
@@ -160,20 +161,22 @@ export default function App() {
   );
 
   const runReport = useCallback(async (name: string, bbox: BBox) => {
-    reportAsked.current = { name, bbox };
+    const asked = { name, bbox };
+    reportAsked.current = asked;
     setSide("report");
     setSideBusy(true);
     setSideError(null);
     setReport(null);
     try {
       const next = await api.report(name, bbox);
+      if (reportAsked.current !== asked) return null;
       setReport(next);
       return next;
     } catch (e) {
-      setSideError((e as Error).message);
+      if (reportAsked.current === asked) setSideError((e as Error).message);
       return null;
     } finally {
-      setSideBusy(false);
+      if (reportAsked.current === asked) setSideBusy(false);
     }
   }, []);
 
@@ -189,8 +192,16 @@ export default function App() {
         setNotice("Area is larger than one city: search a city for its report.");
         return null;
       }
-      api.places(clampIndia(r.bbox)).then(setPlaces, () => setNotice("Localities and landmarks are unavailable right now (Overpass)."));
-      return status?.provider ? runReport(r.name, r.bbox) : null;
+      placesFor.current = r;
+      api.places(clampIndia(r.bbox)).then(
+        (rows) => placesFor.current === r && setPlaces(rows),
+        () => placesFor.current === r && setNotice("Localities and landmarks are unavailable right now (Overpass)."),
+      );
+      if (!status?.provider) return null;
+      const found = await runReport(r.name, r.bbox);
+      // The report reads the centre, so show that part: colours for inner roads only appear when this close.
+      if (found) map.current?.fit(found.provenance.bbox);
+      return found;
     },
     [status?.provider, runReport],
   );
@@ -292,6 +303,7 @@ export default function App() {
         national={national}
         segments={segments}
         boundary={boundary}
+        reportArea={side === "report" && report ? report.provenance.bbox : null}
         places={places}
         selectedLine={side === "road" && detail ? detail.segment.geometry : null}
         trafficTiles={!!caps?.flow_tiles}

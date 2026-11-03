@@ -4,7 +4,7 @@ import { AskBox } from "./AskBox";
 import { DeadEnd } from "./Signs";
 
 const BASIS: Record<string, string> = {
-  realtime: "Live probe data",
+  realtime: "Live data",
   historical: "Historical pattern only, not live",
   speed_limit: "Derived from speed limit, not measured",
   unknown: "Basis not stated by provider",
@@ -40,6 +40,10 @@ export function RoadPanel(props: {
         <span className="font-bold">{LEVEL_LABEL[o.congestion_level]}</span>
         <span className="text-muted text-xs">{BASIS[o.data_basis]}</span>
       </div>
+
+      {o.speed_kmh === o.free_flow_speed_kmh && /Minor|Local/.test(s.road_class ?? "") && (
+        <p className="text-muted mt-2 text-xs">Speed equals free-flow exactly. On a small road, Nakabandi cannot tell whether vehicles were seen here recently.</p>
+      )}
 
       <dl className="mt-3 text-sm">
         <Row k={o.data_basis === "realtime" ? "Observed speed" : "Reported speed (not live)"} v={unit(o.speed_kmh, "km/h")} />

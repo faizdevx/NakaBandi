@@ -103,6 +103,7 @@ export function LeftPanel(props: {
             <p className="text-muted mt-2 text-sm">No city has enough live coverage (20%) to compare.</p>
           ) : (
             <ol className="mt-2 space-y-1 text-sm">
+              <li className="text-muted text-xs">Rough ranking from a small sample of roads in each city.</li>
               {n.most_congested.map((c) => {
                 const city = n.cities.find((x) => x.name === c.name)!;
                 return (
@@ -123,13 +124,12 @@ export function LeftPanel(props: {
           )}
 
           <hr className="lane" />
-          <span className="plate">Severe hotspots</span>
-          {n.hotspots.filter((h) => h.congestion_level === "severe").length === 0 ? (
-            <p className="text-muted mt-2 text-sm">No severe segments in the current sample.</p>
+          <span className="plate">Most slowed sampled roads</span>
+          {n.hotspots.length === 0 ? (
+            <p className="text-muted mt-2 text-sm">No slowed roads in the current sample. The map can still show slow stretches.</p>
           ) : (
             <ul className="mt-2 space-y-1 text-sm">
               {n.hotspots
-                .filter((h) => h.congestion_level === "severe")
                 .slice(0, 8)
                 .map((h) => (
                   <li key={h.id}>
@@ -138,7 +138,7 @@ export function LeftPanel(props: {
                       onClick={() => props.onHotspot(h.lon, h.lat, h.id)}
                     >
                       <span className="font-bold">{roadName(h.road_name)}</span>{" "}
-                      <span className="text-muted text-xs">
+                      <span className="text-xs" style={{ color: LEVEL_COLOR[h.congestion_level] }}>
                         {h.city}, {h.speed_kmh ?? "n/a"} km/h
                       </span>
                     </button>

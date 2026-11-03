@@ -385,10 +385,11 @@ async def national(request: Request, provider=Depends(need_provider)):
         reverse=True,
     )
     # Comparable means enough live road length for the ratio to represent the city.
-    ranked = sorted(
-        (c for c in ok if c["summary"]["coverage"] >= 0.2 and c["summary"]["speed_ratio"] is not None),
-        key=lambda c: c["summary"]["speed_ratio"],
-    )
+    comparable = [
+        {"name": c["name"], **c["summary"]}
+        for c in ok
+        if c["summary"]["coverage"] >= 0.2 and c["summary"]["speed_ratio"] is not None
+    ]
     return {
         "provider": provider_meta(provider),
         "retrieved_at": min((c["retrieved_at"] for c in ok), default=None),
@@ -400,7 +401,7 @@ async def national(request: Request, provider=Depends(need_provider)):
         "total_km": round(total, 2),
         "coverage": round((total - km["unavailable"]) / total, 3) if total else 0.0,
         "cities": [{k: c[k] for k in ("name", "lat", "lon", "error", "summary")} for c in cities],
-        "most_congested": [{"name": c["name"], **c["summary"]} for c in ranked[:8]],
+        "most_congested": analysis.rank_congested(comparable)[:8],
         "hotspots": hotspots[:60],
     }
 
