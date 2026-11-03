@@ -130,6 +130,8 @@ Zoom to city level and click a road to see:
 ### Traffic reports
 A report covers overall condition, severe hotspots, most affected roads, modelled vehicle ranges, incidents, roads without live data, and recommendations that quote the observations behind them. Each one states when it was generated, when the data was retrieved, the provider, the area covered and its limitations.
 
+**Save city card** downloads a square PNG of the report, made for sharing. It shows the +1000 AURA sticker at free or moderate traffic, GAME OVER at heavy or severe, and no sticker without live data. The card keeps the data source, time and "modelled, not measured" label.
+
 ### National overview
 The left panel shows live coverage, congestion by road length, most congested cities and severe hotspots. It is a sample of 12 cities, not all of India, and it says so.
 

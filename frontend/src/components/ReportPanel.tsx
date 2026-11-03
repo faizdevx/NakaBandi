@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { saveCityCard } from "../cityCard";
 import { fmtPct, fmtTime, fmtVehicleRange, LEVEL_COLOR, LEVEL_LABEL, providerName, roadName } from "../format";
 import type { Brief, Report } from "../types";
 import { AskBox } from "./AskBox";
@@ -23,7 +24,7 @@ function Roads({ rows, onRoad }: { rows: Brief[]; onRoad: (b: Brief) => void }) 
               </button>
             </td>
             <td className="font-mono" style={{ color: LEVEL_COLOR[r.congestion_level] }}>
-              {r.speed_kmh ?? "n/a"} / {r.free_flow_speed_kmh ?? "n/a"}
+              {r.road_closed ? "CLOSED" : `${r.speed_kmh ?? "n/a"} / ${r.free_flow_speed_kmh ?? "n/a"}`}
             </td>
             <td className="font-mono">
               {r.modelled_vehicles_low !== null && r.modelled_vehicles_high !== null
@@ -41,6 +42,7 @@ function Roads({ rows, onRoad }: { rows: Brief[]; onRoad: (b: Brief) => void }) 
 
 export function ReportPanel({ report: r, aiReady, onRoad }: { report: Report; aiReady: boolean; onRoad: (b: Brief) => void }) {
   const [celebrate, setCelebrate] = useState(true);
+  const [cardError, setCardError] = useState<string | null>(null);
   useEffect(() => {
     setCelebrate(true);
     const t = setTimeout(() => setCelebrate(false), 2200);
@@ -67,6 +69,18 @@ export function ReportPanel({ report: r, aiReady, onRoad }: { report: Report; ai
           : "No live speed measurements in this area."}{" "}
         Live coverage {fmtPct(s.coverage)} of {s.total_km} km returned.
       </p>
+      {s.measured_km > 0 && (
+        <button
+          className="btn mt-2"
+          onClick={() => {
+            setCardError(null);
+            saveCityCard(r).catch((e: Error) => setCardError(e.message));
+          }}
+        >
+          Save city card
+        </button>
+      )}
+      {cardError && <p className="text-heavy mt-1 text-xs">{cardError}</p>}
 
       <hr className="lane" />
       <span className="plate">Hotspots</span>

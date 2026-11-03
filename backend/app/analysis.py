@@ -95,6 +95,7 @@ def segment_brief(r: dict) -> dict:
         "free_flow_speed_kmh": round(obs["free_flow_speed_kmh"], 1) if obs["free_flow_speed_kmh"] else None,
         "congestion_level": obs["congestion_level"],
         "delay_seconds": round(delay) if delay is not None else None,
+        "road_closed": obs["incident_status"] == "closed",
         "confidence": obs["confidence"],
         "severity": round(severity(r), 3),
         "modelled_status": modelled.get("status"),

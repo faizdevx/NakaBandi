@@ -103,3 +103,13 @@ def test_report_states_missing_volume_and_provenance(payload):
 def test_unverified_numbers_catches_invented_figures():
     assert unverified_numbers("Speed was 18.4 km/h and 95 cars", '{"speed": 18.37}') == [95.0]
     assert unverified_numbers("3 roads at 18 km/h", '{"speed": 18.37}') == []
+
+
+def test_segment_brief_reports_closure():
+    record = {
+        "segment": {"id": "a", "road_name": "A", "road_class": None, "direction": None, "length_km": 1.0, "geometry": [[77.0, 28.0], [77.1, 28.0]]},
+        "observation": {"speed_kmh": 33.0, "free_flow_speed_kmh": 37.0, "congestion_level": "severe", "confidence": 1.0, "incident_status": "closed", "data_basis": "realtime", "travel_time_seconds": None},
+    }
+    assert analysis.segment_brief(record)["road_closed"] is True
+    record["observation"]["incident_status"] = None
+    assert analysis.segment_brief(record)["road_closed"] is False
