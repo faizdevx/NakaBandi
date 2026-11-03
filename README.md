@@ -66,6 +66,38 @@
 
 It has one firm rule: a number must never look more certain than it is. Live measurements, historical fallbacks and modelled estimates are kept apart and labelled. If the data is missing, the app says so instead of filling the gap.
 
+## Walkthrough
+
+Captured from the running app on real TomTom traffic, on 3 November 2026.
+
+**1. Start.** The start screen. Press START to open the map.
+
+![Start screen](docs/screenshots/1-start.jpg)
+
+**2. See India.** Live coverage, congestion by road length, most congested cities and hotspots, from a 12-city sample.
+
+![India overview with hotspots and national statistics](docs/screenshots/2-india.jpg)
+
+**3. Search.** Type a place and press Enter, then pick a result.
+
+![Search results for Delhi](docs/screenshots/3-search.jpg)
+
+**4. Read the city report.** The map flies to the city, outlines its boundary, marks localities and landmarks, and draws traffic on the roads. The report lists the most affected roads with their speeds and modelled vehicle ranges.
+
+![Delhi traffic report](docs/screenshots/4-report.jpg)
+
+**5. Inspect a road.** Pick a road from the report or click one on the map. This view shows its speeds, delay and a vehicle range labelled as modelled, not measured.
+
+![Road inspection panel for Pusa Road](docs/screenshots/5-road.jpg)
+
+**6. Check the sources.** Settings shows what the traffic provider does and does not supply, and lets an admin choose an optional AI provider.
+
+![Settings panel](docs/screenshots/6-settings.jpg)
+
+**7. On a phone.** The overview starts collapsed so the map stays visible.
+
+<p align="center"><img src="docs/screenshots/7-mobile.jpg" alt="Nakabandi on a phone" width="280" /></p>
+
 ## What the app does
 
 ### Map
