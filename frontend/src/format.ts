@@ -31,6 +31,21 @@ export function fmtTime(iso: string | null | undefined): string {
   return Number.isNaN(d.getTime()) ? "n/a" : `${IST.format(d)} IST`;
 }
 
+const IST_CLOCK = new Intl.DateTimeFormat("en-GB", {
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hour12: false,
+  timeZone: "Asia/Kolkata",
+});
+
+export const fmtClock = (ms: number) => `${IST_CLOCK.format(ms)} IST`;
+
+export function fmtAgo(seconds: number): string {
+  const s = Math.max(0, Math.floor(seconds));
+  return s < 60 ? `${s}s ago` : s < 3600 ? `${Math.floor(s / 60)} min ago` : `${Math.floor(s / 3600)} h ago`;
+}
+
 export const fmtPct = (v: number) => `${Math.round(v * 100)}%`;
 
 export function fmtDuration(seconds: number): string {

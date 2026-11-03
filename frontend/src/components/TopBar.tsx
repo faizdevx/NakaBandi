@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../api";
-import { fmtTime } from "../format";
+import { fmtAgo, fmtClock } from "../format";
 import type { SearchResult } from "../types";
 import { Octagon } from "./Signs";
 
@@ -8,11 +8,27 @@ type Feed = { label: string; tone: "live" | "warn" | "off" };
 
 const TONE = { live: "bg-free", warn: "bg-heavy", off: "bg-nodata" };
 
+function LiveClock({ updatedAt }: { updatedAt: number | null }) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  return (
+    <span className="text-muted hidden font-mono text-xs sm:inline" title="Current time, and when the traffic on the map was last fetched">
+      {fmtClock(now)}
+      {updatedAt !== null && ` · traffic ${fmtAgo((now - updatedAt) / 1000)}`}
+    </span>
+  );
+}
+
 export function TopBar(props: {
   feed: Feed;
-  time: string | null;
+  updatedAt: number | null;
   refreshing: boolean;
   onRefresh: () => void;
+  locating: boolean;
+  onNearMe: () => void;
   onSettings: () => void;
   onLogo: () => void;
   onSelect: (r: SearchResult) => void;
@@ -86,8 +102,11 @@ export function TopBar(props: {
         <div className="flex items-center gap-2 text-xs" aria-live="polite">
           <span className={`inline-block h-2.5 w-2.5 ${TONE[props.feed.tone]}`} />
           <span className="font-pixel">{props.feed.label}</span>
-          {props.time && <span className="text-muted hidden font-mono lg:inline">{fmtTime(props.time)}</span>}
         </div>
+        <LiveClock updatedAt={props.updatedAt} />
+        <button className="btn" onClick={props.onNearMe} disabled={props.locating} title="Asks for your location, opens your city and makes its traffic card">
+          {props.locating ? "Locating" : "Near me"}
+        </button>
         <button className="btn" onClick={props.onRefresh} disabled={props.refreshing}>
           {props.refreshing ? "Loading" : "Refresh"}
         </button>

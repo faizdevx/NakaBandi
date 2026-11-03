@@ -132,6 +132,22 @@ A report covers overall condition, severe hotspots, most affected roads, modelle
 
 **Save city card** downloads a square PNG of the report, made for sharing. It shows the +1000 AURA sticker at free or moderate traffic, GAME OVER at heavy or severe, and no sticker without live data. The card keeps the data source, time and "modelled, not measured" label.
 
+### Near me
+**Near me** asks for your location, opens your city with its report, and shows your area's traffic card to save. The browser rounds your position to about 1 km before sending it, only to find the city, and it is not stored with your identity. Browsers only allow this on `localhost` or HTTPS.
+
+### Live updates
+The app updates itself while its tab is visible, and stops while hidden so it spends no quota.
+
+| What | Updates | Spends |
+|---|---|---|
+| Clock and "traffic N ago" | Every second | Nothing |
+| Map traffic colours | Every 2 minutes, swapped without blanking | About 40 tile calls at 1440 × 900 |
+| Open road panel | Every minute | 1 flow call |
+| Open report | Checks every minute, new speeds every 15 minutes | Up to 25 flow calls per new reading |
+| National overview | Checks every minute, new samples every 3 hours | 48 flow calls per new sample |
+
+If new data fails, the last good data stays on screen and the label changes to STALE. TomTom gives no timestamp for its measurements, so "traffic N ago" is when Nakabandi fetched them, not when they were measured.
+
 ### National overview
 The left panel shows live coverage, congestion by road length, most congested cities and severe hotspots. It is a sample of 12 cities, not all of India, and it says so.
 
@@ -261,8 +277,8 @@ Vehicles:      about 51 to 116, shown as "50 to 120, modelled estimate, not meas
 |---|---|---|
 | National overview | 48 flow | 3 hours |
 | City report | Up to 25 flow, 1 incident | 15 minutes |
-| Clicking a road | 1 flow, 1 incident | 15 minutes |
-| Map traffic layer | 1 per tile | Not cached, TomTom sends `no-store` |
+| Clicking a road | 1 flow, 1 incident | Flow 1 minute while open, incident 15 minutes |
+| Map traffic layer | 1 per tile, about 40 per refresh | Not cached, TomTom sends `no-store` |
 
 The API stops calling TomTom for the day at 600 flow, 6000 tile and 75 incident calls. Change this with `FLOW_DAILY_BUDGET`, `TILE_DAILY_BUDGET` and `INCIDENT_DAILY_BUDGET`. The counters reset when the API restarts.
 
@@ -324,6 +340,7 @@ cd frontend && npm run e2e
 - Reports and the national overview are samples, not full coverage.
 - Road names come from OpenStreetMap at the road midpoint. They may name a nearby road or find none, and the national hotspot list stays unnamed.
 - TomTom gives no observation time, so the app shows retrieval time instead.
+- TomTom's traffic colours cover many inner roads in some cities, such as Delhi, and only main roads in others, such as Kareli in Prayagraj. Roads without colours are grey, meaning no data, not empty roads.
 - The OpenAI, Gemini and Ollama adapters have not been tested against the real services.
 - The PostGIS archive passes its test from Linux containers. Connecting from Windows failed in testing.
 

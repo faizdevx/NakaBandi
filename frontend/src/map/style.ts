@@ -34,6 +34,20 @@ export const baseStyle: StyleSpecification = {
     { id: "background", type: "background", paint: { "background-color": "#141413" } },
     { id: "imagery", type: "raster", source: "imagery", paint: { "raster-saturation": -0.25, "raster-brightness-max": 0.82 } },
     {
+      // Grey is the "no data" colour: TomTom's colours draw on top wherever it has this road.
+      id: "roads-no-data",
+      type: "line",
+      source: "osm",
+      "source-layer": "transportation",
+      minzoom: 13,
+      filter: ["in", ["get", "class"], ["literal", ["minor", "service"]]],
+      paint: {
+        "line-color": "#9ca3af",
+        "line-opacity": 0.75,
+        "line-width": ["interpolate", ["linear"], ["zoom"], 13, 0.5, 17, 2.5],
+      },
+    },
+    {
       id: "roads-minor",
       type: "line",
       source: "osm",

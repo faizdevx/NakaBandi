@@ -35,7 +35,7 @@ export function BottomDock(props: {
         <span title="When Nakabandi retrieved it">Ret {fmtTime(props.retrievedAt)}</span>
         {props.coverage !== null && <span title="Share of returned road length with live measurements">Cov {fmtPct(props.coverage)}</span>}
       </div>
-      {props.stale && <span className="text-heavy font-bold">STALE: provider unreachable, showing last good data</span>}
+      {props.stale && <span className="text-heavy font-bold">STALE: no fresh data, showing last good data</span>}
       {props.notice && <span className="text-sign">{props.notice}</span>}
       {props.particles && (
         <span className="font-pixel border border-white px-1.5 text-white">SIMULATED DOTS, NOT VEHICLES</span>

@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, ApiError } from "./api";
 import { BottomDock } from "./components/BottomDock";
+import { CardPreview } from "./components/CardPreview";
 import { LeftPanel } from "./components/LeftPanel";
 import { MapControls } from "./components/MapControls";
 import { ReportPanel } from "./components/ReportPanel";
 import { RoadPanel } from "./components/RoadPanel";
 import { SettingsDrawer } from "./components/SettingsDrawer";
 import { GameOver, PanelNotice } from "./components/Signs";
+import { useLive } from "./live";
 import { Splash } from "./components/Splash";
 import { TopBar } from "./components/TopBar";
 import { MapView, POINT_LOOKUP_MIN_ZOOM, SEGMENT_MIN_ZOOM, type MapHandle } from "./map/MapView";
@@ -14,6 +16,9 @@ import type { BBox, Brief, National, Place, Report, SearchResult, SegmentCollect
 
 const SPLASH_KEY = "nakabandi.started";
 const INDIA = { west: 66, south: 6, east: 99, north: 38 };
+// Each tile refresh spends free quota, so colours poll slower. The rest polls the API cache and only spends on expiry.
+const DATA_POLL_MS = 60_000;
+const TILE_POLL_MS = 120_000;
 
 function splashSeen() {
   try {
@@ -54,6 +59,10 @@ export default function App() {
   const [sideError, setSideError] = useState<string | null>(null);
   const [pinned, setPinned] = useState<SegmentDetail[]>([]);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [locating, setLocating] = useState(false);
+  const [card, setCard] = useState<Report | null>(null);
+  const [trafficAt, setTrafficAt] = useState<number | null>(null);
+  const [trafficStale, setTrafficStale] = useState(false);
   const segmentAbort = useRef<AbortController | null>(null);
 
   const noProvider = status !== null && status.provider === null;
@@ -69,16 +78,19 @@ export default function App() {
     }
   }, []);
 
-  const loadNational = useCallback(async () => {
-    setNationalLoading(true);
-    setNationalError(null);
+  const loadNational = useCallback(async (silent = false) => {
+    if (!silent) {
+      setNationalLoading(true);
+      setNationalError(null);
+    }
     try {
       setNational(await api.national());
+      setNationalError(null);
     } catch (e) {
       const err = e as ApiError;
       setNationalError({ code: err.code, message: err.message });
     } finally {
-      setNationalLoading(false);
+      if (!silent) setNationalLoading(false);
     }
   }, []);
 
@@ -141,7 +153,8 @@ export default function App() {
 
   const openSegment = useCallback((id: string) => void showRoad(api.segment(id)), [showRoad]);
   const openAt = useCallback(
-    (lat: number, lon: number, zoom: number) => void showRoad(api.segmentAt(lat, lon, zoom)),
+    // TomTom answers for inner roads at flow zoom 16, and often snaps to a main road at other zooms.
+    (lat: number, lon: number, zoom: number) => void showRoad(api.segmentAt(lat, lon, zoom >= 14 ? 16 : zoom)),
     [showRoad],
   );
 
@@ -151,9 +164,12 @@ export default function App() {
     setSideError(null);
     setReport(null);
     try {
-      setReport(await api.report(name, bbox));
+      const next = await api.report(name, bbox);
+      setReport(next);
+      return next;
     } catch (e) {
       setSideError((e as Error).message);
+      return null;
     } finally {
       setSideBusy(false);
     }
@@ -167,24 +183,74 @@ export default function App() {
       const w = r.bbox.east - r.bbox.west;
       const h = r.bbox.north - r.bbox.south;
       const cityScale = w <= 1.2 && h <= 1.2;
-      if (status?.provider && cityScale) void runReport(r.name, r.bbox);
-      else if (!cityScale) setNotice("Area is larger than one city: search a city for its report.");
-      if (cityScale) {
-        try {
-          setPlaces(await api.places(clampIndia(r.bbox)));
-        } catch {
-          setNotice("Localities and landmarks are unavailable right now (Overpass).");
-        }
+      if (!cityScale) {
+        setNotice("Area is larger than one city: search a city for its report.");
+        return null;
       }
+      api.places(clampIndia(r.bbox)).then(setPlaces, () => setNotice("Localities and landmarks are unavailable right now (Overpass)."));
+      return status?.provider ? runReport(r.name, r.bbox) : null;
     },
     [status?.provider, runReport],
   );
+
+  const nearMe = useCallback(() => {
+    if (!navigator.geolocation) {
+      setNotice("This browser cannot share location. Search your city instead.");
+      return;
+    }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      async ({ coords }) => {
+        try {
+          const found = await selectPlace(await api.locate(coords.latitude, coords.longitude));
+          if (found?.overall.measured_km) setCard(found);
+          else if (found) setNotice("No live traffic near you right now, so no card.");
+        } catch (e) {
+          setNotice((e as Error).message);
+        } finally {
+          setLocating(false);
+        }
+      },
+      (e) => {
+        setLocating(false);
+        setNotice(e.code === e.PERMISSION_DENIED ? "Location permission denied. Search your city instead." : "Could not get your location. Search your city instead.");
+      },
+      { timeout: 10000, maximumAge: 300000 },
+    );
+  }, [selectPlace]);
 
   const refresh = useCallback(() => {
     void loadStatus();
     if (status?.provider) void loadNational();
     if (view) void loadSegments(view);
+    map.current?.refreshTraffic();
   }, [loadStatus, loadNational, loadSegments, status?.provider, view]);
+
+  const onTraffic = useCallback((ok: boolean) => {
+    setTrafficStale(!ok);
+    if (ok) setTrafficAt(Date.now());
+  }, []);
+
+  useLive(() => {
+    void loadStatus();
+    if (status?.provider) void loadNational(true);
+    if (bboxFlow && view) void loadSegments(view);
+  }, DATA_POLL_MS);
+
+  useLive(() => map.current?.refreshTraffic(), TILE_POLL_MS, !!caps?.flow_tiles && toggles.traffic);
+
+  // The panels update in place: identity checks drop a late answer if the user has moved on.
+  useLive(
+    () => {
+      if (side === "road" && detail) {
+        api.segment(detail.segment.id).then((next) => setDetail((cur) => (cur === detail ? next : cur)), () => {});
+      } else if (side === "report" && report) {
+        api.report(report.area, report.provenance.bbox).then((next) => setReport((cur) => (cur === report ? next : cur)), () => {});
+      }
+    },
+    DATA_POLL_MS,
+    !sideBusy,
+  );
 
   const onRoad = useCallback(
     (b: Brief) => {
@@ -208,7 +274,7 @@ export default function App() {
     ? ({ label: "API DOWN", tone: "off" } as const)
     : noProvider
       ? ({ label: "NO FEED", tone: "off" } as const)
-      : meta?.stale || national?.stale
+      : meta?.stale || national?.stale || trafficStale
         ? ({ label: "STALE", tone: "warn" } as const)
         : national || meta
           ? ({ label: "LIVE", tone: "live" } as const)
@@ -232,13 +298,16 @@ export default function App() {
         onMove={onMove}
         onSegment={openSegment}
         onMapError={setNotice}
+        onTraffic={onTraffic}
       />
 
       <TopBar
         feed={feed}
-        time={meta?.observed_at ?? national?.observed_at ?? national?.retrieved_at ?? null}
+        updatedAt={trafficAt ?? (meta?.retrieved_at || national?.retrieved_at ? Date.parse((meta?.retrieved_at ?? national?.retrieved_at)!) : null)}
         refreshing={nationalLoading || segmentsLoading}
         onRefresh={refresh}
+        locating={locating}
+        onNearMe={nearMe}
         onSettings={() => setSettingsOpen(true)}
         onLogo={() => setSplash(true)}
         onSelect={selectPlace}
@@ -314,13 +383,14 @@ export default function App() {
         observedAt={meta?.observed_at ?? national?.observed_at ?? null}
         retrievedAt={meta?.retrieved_at ?? national?.retrieved_at ?? null}
         coverage={meta?.summary.coverage ?? national?.coverage ?? null}
-        stale={!!(meta?.stale || national?.stale)}
+        stale={!!(meta?.stale || national?.stale) || trafficStale}
         notice={notice ?? (caps?.point_lookup && view && view.zoom >= POINT_LOOKUP_MIN_ZOOM ? "Click any road to inspect it" : null)}
         particles={toggles.particles}
         canReport={!!status?.provider && !!view && view.zoom >= SEGMENT_MIN_ZOOM}
         onReportView={() => view && void runReport("Current view", clampIndia(view.bbox))}
       />
 
+      {card && <CardPreview report={card} onClose={() => setCard(null)} />}
       {settingsOpen && <SettingsDrawer status={status} onClose={() => setSettingsOpen(false)} onSaved={loadStatus} />}
       {splash && <Splash onStart={start} />}
     </main>

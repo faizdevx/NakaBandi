@@ -1,3 +1,4 @@
+import asyncio
 from datetime import UTC, datetime
 
 import httpx
@@ -172,3 +173,62 @@ def test_distance_to_line():
     assert distance_to_line_km(26.05, 80.0, line) == pytest.approx(0, abs=0.001)
     assert distance_to_line_km(26.05, 80.01, line) == pytest.approx(0.99, abs=0.01)
     assert distance_to_line_km(26.2, 80.0, line) == pytest.approx(11.1, abs=0.1)
+
+
+def age_cached_road(client, seg_id):
+    cache = client.app.state.cache
+    record = asyncio.run(cache.get(f"seg:{seg_id}"))
+    record["observation"]["retrieved_at"] = "2026-01-01T00:00:00+00:00"
+    asyncio.run(cache.set(f"seg:{seg_id}", record, 3600))
+
+
+def mock_road_services():
+    respx.get(f"{BASE}/services/5/incidentDetails").mock(return_value=httpx.Response(200, json={"incidents": []}))
+    respx.get(f"{settings.nominatim_url}/reverse").mock(
+        return_value=httpx.Response(200, json={"address": {"road": "A"}})
+    )
+
+
+@respx.mock
+def test_open_road_rereads_when_old_at_same_zoom(client):
+    flow = respx.get(url__startswith=FLOW).mock(return_value=httpx.Response(200, json=flow_payload(speed=15)))
+    mock_road_services()
+    seg_id = client.get("/api/traffic/at?lat=26.855&lon=80.94&zoom=14").json()["segment"]["id"]
+    assert flow.call_count == 1
+
+    # Fresh reading: no extra call.
+    assert client.get(f"/api/traffic/segment/{seg_id}").json()["observation"]["speed_kmh"] == 15
+    assert flow.call_count == 1
+
+    age_cached_road(client, seg_id)
+    flow.mock(return_value=httpx.Response(200, json=flow_payload(speed=9)))
+    assert client.get(f"/api/traffic/segment/{seg_id}").json()["observation"]["speed_kmh"] == 9
+    assert flow.call_count == 2
+    assert "/absolute/14/" in str(flow.calls.last.request.url)
+
+    # Within the road TTL the cached re-read answers, so polling spends nothing.
+    age_cached_road(client, seg_id)
+    assert client.get(f"/api/traffic/segment/{seg_id}").json()["observation"]["speed_kmh"] == 9
+    assert flow.call_count == 2
+
+
+@respx.mock
+def test_open_road_keeps_last_reading_when_budget_runs_out(client, monkeypatch):
+    respx.get(url__startswith=FLOW).mock(return_value=httpx.Response(200, json=flow_payload(speed=15)))
+    mock_road_services()
+    seg_id = client.get("/api/traffic/at?lat=26.855&lon=80.94&zoom=14").json()["segment"]["id"]
+    age_cached_road(client, seg_id)
+    monkeypatch.setattr(settings, "flow_daily_budget", 0)
+    r = client.get(f"/api/traffic/segment/{seg_id}")
+    assert r.status_code == 200 and r.json()["observation"]["speed_kmh"] == 15
+
+
+@respx.mock
+def test_open_road_keeps_reading_if_point_snaps_to_another_road(client):
+    flow = respx.get(url__startswith=FLOW).mock(return_value=httpx.Response(200, json=flow_payload(speed=15)))
+    mock_road_services()
+    seg_id = client.get("/api/traffic/at?lat=26.855&lon=80.94&zoom=14").json()["segment"]["id"]
+    age_cached_road(client, seg_id)
+    flow.mock(return_value=httpx.Response(200, json=flow_payload(speed=9, lat=27.5)))
+    body = client.get(f"/api/traffic/segment/{seg_id}").json()
+    assert body["segment"]["id"] == seg_id and body["observation"]["speed_kmh"] == 15

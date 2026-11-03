@@ -159,7 +159,7 @@ function draw(ctx: CanvasRenderingContext2D, r: Report) {
 }
 
 /** Draws from report fields only, so no map tiles or traffic images are copied into the file. */
-export async function saveCityCard(r: Report): Promise<void> {
+export async function renderCityCard(r: Report): Promise<Blob> {
   await Promise.allSettled(
     [`900 40px Overpass`, `800 40px Overpass`, `600 40px Overpass`, `600 28px "Overpass Mono"`, `700 70px Silkscreen`].map((f) => document.fonts.load(f)),
   );
@@ -170,10 +170,18 @@ export async function saveCityCard(r: Report): Promise<void> {
   draw(ctx, r);
   const blob = await new Promise<Blob | null>((done) => canvas.toBlob(done, "image/png"));
   if (!blob) throw new Error("Could not create the image");
+  return blob;
+}
+
+export function downloadCard(blob: Blob, r: Report) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
   link.download = cardFilename(r.area, r.provenance.retrieved_at);
   link.click();
   URL.revokeObjectURL(url);
+}
+
+export async function saveCityCard(r: Report): Promise<void> {
+  downloadCard(await renderCityCard(r), r);
 }

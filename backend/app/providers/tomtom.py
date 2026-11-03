@@ -153,7 +153,11 @@ class TomTomProvider:
             f"{BASE}/services/4/flowSegmentData/absolute/{zoom}/json",
             params={"key": self.api_key, "point": f"{lat:.5f},{lon:.5f}", "unit": "kmph"},
         )
-        return normalize_flow(payload, utcnow())
+        record = normalize_flow(payload, utcnow())
+        if record:
+            # TomTom's segment shape depends on zoom, so a live re-read must ask at the same zoom.
+            record.observation.raw_source_metadata["zoom"] = zoom
+        return record
 
     async def flow(self, bbox: BBox, max_functional_class: int) -> FlowBatch:
         """Samples a grid. Each point snaps to its nearest road, so this covers some roads, not all."""

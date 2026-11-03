@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     admin_token: str = ""
 
     flow_ttl_seconds: int = 900
+    road_ttl_seconds: int = 60
     national_ttl_seconds: int = 10800
 
     # Daily guards that keep TomTom inside its free monthly quota (20K flow, 200K tiles, 2.5K incidents).

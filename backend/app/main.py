@@ -4,6 +4,7 @@ import json
 import logging
 import uuid
 from contextlib import asynccontextmanager
+from datetime import datetime
 
 import httpx
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
@@ -140,6 +141,28 @@ async def search(request: Request, q: str = Query(..., min_length=2, max_length=
     return {"results": results, "attribution": "© OpenStreetMap contributors, via Nominatim"}
 
 
+class LocateRequest(BaseModel):
+    lat: float = Field(ge=-90, le=90)
+    lon: float = Field(ge=-180, le=180)
+
+
+@app.post("/api/locate")
+async def locate(body: LocateRequest, request: Request):
+    """City for the visitor's position. POST and rounding to about 1 km keep the exact spot out of URLs, logs and Nominatim."""
+    state = request.app.state
+    lat, lon = round(body.lat, 2), round(body.lon, 2)
+    place, _ = await state.cache.fetch(
+        f"locate:{lat}:{lon}", 30 * 86400, lambda: _locate_or_empty(state.client, lat, lon)
+    )
+    if not place:
+        raise HTTPException(404, {"code": "outside_india", "detail": "Your location is outside India, or has no known city."})
+    return place
+
+
+async def _locate_or_empty(client, lat: float, lon: float) -> dict:
+    return await geocode.locate(client, lat, lon) or {}
+
+
 @app.get("/api/places")
 async def places(request: Request, box: BBox = Depends(parse_bbox)):
     state = request.app.state
@@ -229,6 +252,28 @@ async def named(request: Request, provider, record: dict) -> dict:
     return record
 
 
+async def live_record(request: Request, provider, record: dict) -> dict:
+    """Re-reads one road from point-lookup providers. Keeps the last reading on failure or if the point snaps elsewhere."""
+    obs, seg_id = record["observation"], record["segment"]["id"]
+    zoom = obs["raw_source_metadata"].get("zoom")
+    age = (utcnow() - datetime.fromisoformat(obs["retrieved_at"])).total_seconds()
+    if zoom is None or age < settings.road_ttl_seconds or not provider.capabilities.get("point_lookup"):
+        return record
+    lon, lat = geo.midpoint(record["segment"]["geometry"])
+
+    async def load():
+        found = await provider.flow_at(lat, lon, zoom)
+        return found.model_dump(mode="json") if found and found.segment.id == seg_id else record
+
+    state = request.app.state
+    try:
+        fresh, _ = await state.cache.fetch(f"live:{seg_id}", settings.road_ttl_seconds, load)
+    except UpstreamError:
+        return record
+    await state.cache.set(f"seg:{seg_id}", fresh, SEGMENT_TTL)
+    return fresh
+
+
 async def segment_response(request: Request, provider, record: dict) -> dict:
     record = await named(request, provider, record)
     lon, lat = geo.midpoint(record["segment"]["geometry"])
@@ -252,7 +297,7 @@ async def segment_detail(request: Request, segment_id: str, provider=Depends(nee
     record = await request.app.state.cache.get(f"seg:{segment_id}")
     if record is None:
         raise HTTPException(404, {"code": "segment_expired", "detail": "Segment no longer cached. Refresh traffic."})
-    return await segment_response(request, provider, record)
+    return await segment_response(request, provider, await live_record(request, provider, record))
 
 
 @app.get("/api/traffic/at")

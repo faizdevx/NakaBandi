@@ -53,6 +53,8 @@ export const api = {
     call<SegmentDetail>(`/api/traffic/at?lat=${lat.toFixed(5)}&lon=${lon.toFixed(5)}&zoom=${Math.round(zoom)}`),
   search: (q: string) =>
     call<{ results: SearchResult[] }>(`/api/search?q=${encodeURIComponent(q)}`).then((r) => r.results),
+  // About 1 km: enough to find the city, and the exact spot never leaves the browser.
+  locate: (lat: number, lon: number) => call<SearchResult>("/api/locate", post({ lat: +lat.toFixed(2), lon: +lon.toFixed(2) })),
   places: (b: BBox) => call<{ places: Place[] }>(`/api/places?bbox=${bboxParam(b)}`).then((r) => r.places),
   report: (name: string, bbox: BBox) => call<Report>("/api/report", post({ name, bbox })),
   ask: (body: { report_id?: string; segment_ids?: string[]; question?: string }) =>

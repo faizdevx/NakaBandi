@@ -47,7 +47,7 @@ export function ReportPanel({ report: r, aiReady, onRoad }: { report: Report; ai
     setCelebrate(true);
     const t = setTimeout(() => setCelebrate(false), 2200);
     return () => clearTimeout(t);
-  }, [r.id]);
+  }, [r.area]);
   const s = r.overall;
   const name = r.provenance.providers.map(providerName).join(", ");
 
@@ -63,6 +63,7 @@ export function ReportPanel({ report: r, aiReady, onRoad }: { report: Report; ai
         <span className="inline-block h-3 w-3" style={{ background: LEVEL_COLOR[s.overall] }} />
         <span className="font-bold">Overall: {LEVEL_LABEL[s.overall]}</span>
       </div>
+      <p className="text-muted mt-1 font-mono text-xs">Speeds fetched {fmtTime(r.provenance.retrieved_at)}</p>
       <p className="mt-2 text-sm">
         {s.avg_speed_kmh !== null
           ? `Live roads average ${s.avg_speed_kmh} km/h against ${s.avg_free_flow_kmh} km/h free-flow, over ${s.measured_km} km measured.`

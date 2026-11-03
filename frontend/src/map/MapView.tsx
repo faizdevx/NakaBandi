@@ -42,6 +42,7 @@ export type MapHandle = {
   flyTo: (lon: number, lat: number, zoom?: number) => void;
   reset: () => void;
   view: () => { bbox: BBox; zoom: number } | null;
+  refreshTraffic: () => void;
 };
 
 type Props = {
@@ -57,6 +58,7 @@ type Props = {
   onSegment: (id: string) => void;
   onMapClick: ((lat: number, lon: number, zoom: number) => void) | null;
   onMapError: (message: string) => void;
+  onTraffic: (ok: boolean) => void;
 };
 
 function currentView(map: MLMap) {
@@ -67,6 +69,15 @@ function currentView(map: MLMap) {
   };
 }
 
+const flowSource = (version: number): maplibregl.RasterSourceSpecification => ({
+  type: "raster",
+  // The version only makes MapLibre ask again: its tile cache is per source.
+  tiles: [`${window.location.origin}/api/traffic/tiles/{z}/{x}/{y}.png?v=${version}`],
+  tileSize: 256,
+  // TomTom's tiles come back empty above this, so closer views stretch these instead of blanking.
+  maxzoom: 17,
+});
+
 function setData(map: MLMap, id: string, data: GeoJSON.GeoJSON) {
   (map.getSource(id) as GeoJSONSource | undefined)?.setData(data);
 }
@@ -76,6 +87,8 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(props, ref)
   const mapRef = useRef<MLMap | null>(null);
   const callbacks = useRef(props);
   const attrib = useRef<maplibregl.AttributionControl | null>(null);
+  const flowLayer = useRef<string | null>(null);
+  const flowLoading = useRef(false);
   const [ready, setReady] = useState(false);
   const { toggles, national, segments, boundary, places, selectedLine, trafficTiles, attribution } = props;
 
@@ -95,6 +108,40 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(props, ref)
     flyTo: (lon, lat, zoom = 14) => mapRef.current?.flyTo({ center: [lon, lat], zoom, padding: clearArea(), duration: 1600 }),
     reset: () => mapRef.current?.fitBounds(INDIA_BOUNDS, { padding: 30, pitch: 0, bearing: 0, duration: 1400 }),
     view: () => (mapRef.current ? currentView(mapRef.current) : null),
+    // Loads the new tiles invisibly and swaps once complete, so the colours never blink off.
+    refreshTraffic: () => {
+      const map = mapRef.current;
+      const old = flowLayer.current;
+      if (!map || !old || flowLoading.current) return;
+      flowLoading.current = true;
+      const version = Date.now();
+      const id = `flow-tiles-${version}`;
+      map.addSource(id, flowSource(version));
+      map.addLayer({ id, type: "raster", source: id, paint: { "raster-opacity": 0, "raster-fade-duration": 0 } }, "state-lines");
+      const finish = (ok: boolean) => {
+        clearTimeout(timer);
+        map.off("sourcedata", onData);
+        map.off("error", onError);
+        flowLoading.current = false;
+        const drop = ok ? old : id;
+        if (ok) {
+          map.setPaintProperty(id, "raster-opacity", 1);
+          flowLayer.current = id;
+        }
+        map.removeLayer(drop);
+        map.removeSource(drop);
+        callbacks.current.onTraffic(ok);
+      };
+      const onData = (e: maplibregl.MapSourceDataEvent) => {
+        if (e.sourceId === id && map.isSourceLoaded(id)) finish(true);
+      };
+      const onError = (e: maplibregl.ErrorEvent & { sourceId?: string }) => {
+        if (e.sourceId === id) finish(false);
+      };
+      const timer = setTimeout(() => finish(false), 30000);
+      map.on("sourcedata", onData);
+      map.on("error", onError);
+    },
   }));
 
   useEffect(() => {
@@ -301,6 +348,8 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(props, ref)
       map.remove();
       mapRef.current = null;
       attrib.current = null;
+      flowLayer.current = null;
+      flowLoading.current = false;
       setReady(false);
     };
   }, []);
@@ -321,21 +370,19 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView(props, ref)
       ids.forEach((id) => map.getLayer(id) && map.setLayoutProperty(id, "visibility", on ? "visible" : "none"));
     vis(LABEL_LAYERS, toggles.hybrid);
     vis(ROAD_LAYERS, toggles.roads);
-    vis(["segments-casing", "segments-line", "segments-hit", "segment-selected"], toggles.traffic);
+    vis(["segments-casing", "segments-line", "segments-hit", "segment-selected", "roads-no-data"], toggles.traffic);
     vis(["hotspot-cluster", "hotspot-count", "hotspot-point", "city-unavailable"], toggles.hotspots);
     vis(["particles"], toggles.particles);
-    vis(["flow-tiles"], toggles.traffic);
+    if (flowLayer.current) vis([flowLayer.current], toggles.traffic);
   }, [ready, trafficTiles, toggles.hybrid, toggles.roads, toggles.traffic, toggles.hotspots, toggles.particles]);
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!ready || !map || !trafficTiles || map.getSource("flow-tiles")) return;
-    map.addSource("flow-tiles", {
-      type: "raster",
-      tiles: [`${window.location.origin}/api/traffic/tiles/{z}/{x}/{y}.png`],
-      tileSize: 256,
-    });
+    if (!ready || !map || !trafficTiles || flowLayer.current) return;
+    map.addSource("flow-tiles", flowSource(Date.now()));
     map.addLayer({ id: "flow-tiles", type: "raster", source: "flow-tiles" }, "state-lines");
+    flowLayer.current = "flow-tiles";
+    callbacks.current.onTraffic(true);
   }, [ready, trafficTiles]);
 
   useEffect(() => {

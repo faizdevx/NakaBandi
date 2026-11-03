@@ -1,9 +1,14 @@
 from datetime import UTC, datetime
 
+import httpx
 import pytest
+import respx
+from fastapi.testclient import TestClient
 
-from app import analysis, geo
+from app import analysis, geo, geocode
 from app.ai import unverified_numbers
+from app.config import settings
+from app.main import app
 from app.providers.here import normalize_flow
 from app.schemas import BBox
 
@@ -113,3 +118,60 @@ def test_segment_brief_reports_closure():
     assert analysis.segment_brief(record)["road_closed"] is True
     record["observation"]["incident_status"] = None
     assert analysis.segment_brief(record)["road_closed"] is False
+
+
+REVERSE_ROW = {
+    "osm_type": "relation",
+    "osm_id": 1,
+    "name": "Prayagraj",
+    "display_name": "Prayagraj, Uttar Pradesh, India",
+    "addresstype": "city",
+    "category": "boundary",
+    "lat": "25.43",
+    "lon": "81.83",
+    "boundingbox": ["25.27", "25.59", "81.67", "81.99"],
+    "address": {"country_code": "in"},
+    "geojson": {"type": "Polygon", "coordinates": []},
+}
+
+
+@respx.mock
+async def test_locate_returns_city():
+    route = respx.get(f"{settings.nominatim_url}/reverse").mock(return_value=httpx.Response(200, json=REVERSE_ROW))
+    async with httpx.AsyncClient() as c:
+        place = await geocode.locate(c, 25.45, 81.81)
+    assert place["name"] == "Prayagraj" and place["geojson"] is not None
+    assert route.calls.last.request.url.params["zoom"] == "10"
+
+
+@respx.mock
+async def test_locate_shrinks_area_too_big_for_a_report():
+    big = {**REVERSE_ROW, "boundingbox": ["24.0", "27.0", "80.0", "83.0"]}
+    respx.get(f"{settings.nominatim_url}/reverse").mock(return_value=httpx.Response(200, json=big))
+    async with httpx.AsyncClient() as c:
+        place = await geocode.locate(c, 25.45, 81.81)
+    assert place["bbox"] == pytest.approx({"west": 81.71, "south": 25.35, "east": 81.91, "north": 25.55})
+    assert place["geojson"] is None
+
+
+@respx.mock
+async def test_locate_rejects_outside_india_and_unknown():
+    route = respx.get(f"{settings.nominatim_url}/reverse")
+    async with httpx.AsyncClient() as c:
+        route.mock(return_value=httpx.Response(200, json={**REVERSE_ROW, "address": {"country_code": "np"}}))
+        assert await geocode.locate(c, 27.7, 85.3) is None
+        route.mock(return_value=httpx.Response(200, json={"error": "Unable to geocode"}))
+        assert await geocode.locate(c, 15.0, 70.0) is None
+
+
+@respx.mock
+def test_locate_endpoint_rounds_position_before_nominatim():
+    route = respx.get(f"{settings.nominatim_url}/reverse").mock(return_value=httpx.Response(200, json=REVERSE_ROW))
+    with TestClient(app) as client:
+        r = client.post("/api/locate", json={"lat": 25.447123, "lon": 81.807456})
+        assert r.status_code == 200 and r.json()["name"] == "Prayagraj"
+        params = route.calls.last.request.url.params
+        assert params["lat"] == "25.45" and params["lon"] == "81.81"
+        route.mock(return_value=httpx.Response(200, json={"error": "Unable to geocode"}))
+        assert client.post("/api/locate", json={"lat": 15.0, "lon": 70.0}).status_code == 404
+        assert client.post("/api/locate", json={"lat": 915.0, "lon": 70.0}).status_code == 422

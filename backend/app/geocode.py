@@ -7,6 +7,7 @@ import time
 from .config import settings
 from .http import request_json
 
+MAX_CITY_DEG = 1.2
 _lock = asyncio.Lock()
 _last = 0.0
 
@@ -64,6 +65,20 @@ async def search(client, q: str) -> list[dict]:
         "polygon_threshold": 0.002,
     }
     return parse_search(await _nominatim(client, "search", params))
+
+
+async def locate(client, lat: float, lon: float) -> dict | None:
+    """City around a point, or None outside India. Areas too big for one report shrink to a box around the point."""
+    params = {"lat": lat, "lon": lon, "zoom": 10, "format": "jsonv2", "polygon_geojson": 1, "polygon_threshold": 0.002}
+    row = await _nominatim(client, "reverse", params)
+    if "boundingbox" not in row or (row.get("address") or {}).get("country_code") != "in":
+        return None
+    place = parse_search([row])[0]
+    box = place["bbox"]
+    if max(box["east"] - box["west"], box["north"] - box["south"]) > MAX_CITY_DEG:
+        place["bbox"] = {"west": lon - 0.1, "south": lat - 0.1, "east": lon + 0.1, "north": lat + 0.1}
+        place["geojson"] = None
+    return place
 
 
 def lanes_per_direction(tags: dict) -> int | None:
