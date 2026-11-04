@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     redis_url: str = ""
     database_url: str = ""
     admin_token: str = ""
+    static_dir: str = ""
 
     flow_ttl_seconds: int = 900
     road_ttl_seconds: int = 60

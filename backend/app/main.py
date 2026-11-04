@@ -19,6 +19,7 @@ from .http import UpstreamError
 from .probes import PROBE_RADIUS_DEG, PROBES
 from .providers import build_provider
 from .schemas import BBox
+from .spa import SpaFiles
 
 
 class JsonFormatter(logging.Formatter):
@@ -501,3 +502,7 @@ async def ask(body: AskRequest, request: Request):
         raise HTTPException(
             502, {"code": "ai_bad_response", "detail": "AI provider returned no usable text."}
         ) from None
+
+# Last, so every API route above wins. Only set in the single-service image.
+if settings.static_dir:
+    app.mount("/", SpaFiles(directory=settings.static_dir, html=True))
